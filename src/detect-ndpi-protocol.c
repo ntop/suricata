@@ -22,8 +22,6 @@
  * \author Alfredo Cardigliano <cardigliano@ntop.org>
  */
 
-#ifdef HAVE_NDPI
-
 #include "suricata-common.h"
 #include "detect-engine.h"
 #include "detect-engine-build.h"
@@ -34,6 +32,8 @@
 #include "util-debug.h"
 #include "util-unittest.h"
 #include "util-unittest-helper.h"
+
+#ifdef HAVE_NDPI
 
 //#include "app-layer.h"
 //#include "app-layer-parser.h"
@@ -95,7 +95,7 @@ static DetectnDPIProtocolData *DetectnDPIProtocolParse(const char *arg, bool neg
     ndpi_struct = ndpi_init_detection_module(NULL);
     if (unlikely(ndpi_struct == NULL))
         return NULL;
-    l7_protocol_id = ndpi_protocol2id(ndpi_struct, l7_protocol_name);
+    l7_protocol_id = ndpi_get_proto_by_name(ndpi_struct, l7_protocol_name);
     ndpi_exit_detection_module(ndpi_struct);
 
     data = SCMalloc(sizeof(DetectnDPIProtocolData));

@@ -67,9 +67,19 @@ Flow *FlowAlloc(void)
         (void)SC_ATOMIC_SUB(flow_memuse, size);
         return NULL;
     }
-
+    
     /* coverity[missing_lock] */
     FLOW_INITIALIZE(f);
+
+#ifdef HAVE_NDPI
+    f->ndpi_flow = (struct ndpi_flow_struct *)ndpi_flow_malloc(SIZEOF_FLOW_STRUCT);
+    if(f->ndpi_flow != NULL) {
+      memset(f->ndpi_flow, 0, SIZEOF_FLOW_STRUCT);
+      f->detection_completed = 0;
+      /* printf("%s - Allocated flow\n", __FUNCTION__); */
+    }
+#endif
+    
     return f;
 }
 
@@ -81,7 +91,14 @@ Flow *FlowAlloc(void)
  */
 void FlowFree(Flow *f)
 {
-    FLOW_DESTROY(f);
+#ifdef HAVE_NDPI
+  if(f->ndpi_flow) {
+    ndpi_flow_free(f->ndpi_flow);
+    /* printf("%s - Freed flow\n", __FUNCTION__); */
+  }
+#endif
+
+  FLOW_DESTROY(f);
     SCFree(f);
 
     size_t size = sizeof(Flow) + FlowStorageSize();

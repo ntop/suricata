@@ -32,6 +32,9 @@ enum DetectKeywordId {
 
     /* sorted by prefilter priority. Higher in this list means it will be
      * picked over ones lower in the list */
+#ifdef HAVE_NDPI
+    DETECT_NDPI_PROTOCOL,
+#endif
     DETECT_AL_APP_LAYER_PROTOCOL,
     DETECT_ACK,
     DETECT_SEQ,

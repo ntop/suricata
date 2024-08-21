@@ -81,7 +81,11 @@ typedef struct JsonFileLogThread_ {
 
 JsonBuilder *JsonBuildFileInfoRecord(const Packet *p, const File *ff, void *tx,
         const uint64_t tx_id, const bool stored, uint8_t dir, HttpXFFCfg *xff_cfg,
-        OutputJsonCtx *eve_ctx)
+        OutputJsonCtx *eve_ctx
+#ifdef HAVE_NDPI
+        , ThreadVars *tv
+#endif
+)
 {
     enum OutputJsonLogDirection fdir = LOG_DIR_FLOW;
 
@@ -191,6 +195,16 @@ JsonBuilder *JsonBuildFileInfoRecord(const Packet *p, const File *ff, void *tx,
 
     jb_set_string(js, "app_proto", AppProtoToString(p->flow->alproto));
 
+#ifdef HAVE_NDPI
+    jb_open_object(js, "ndpi");
+    if (p->flow->detection_completed) {
+        jb_set_string(js, "app_protocol", ndpi_get_proto_name(tv->ndpi_struct, p->flow->detected_l7_protocol.app_protocol));
+        jb_set_string(js, "master_protocol", ndpi_get_proto_name(tv->ndpi_struct, p->flow->detected_l7_protocol.master_protocol));
+        jb_set_string(js, "category", ndpi_category_get_name(tv->ndpi_struct, p->flow->detected_l7_protocol.category));
+    }
+    jb_close(js);
+#endif
+
     jb_open_object(js, "fileinfo");
     if (stored) {
         // the file has just been stored on disk cf OUTPUT_FILEDATA_FLAG_CLOSE
@@ -214,11 +228,20 @@ JsonBuilder *JsonBuildFileInfoRecord(const Packet *p, const File *ff, void *tx,
  *  \brief Write meta data on a single line json record
  */
 static void FileWriteJsonRecord(JsonFileLogThread *aft, const Packet *p, const File *ff, void *tx,
-        const uint64_t tx_id, uint8_t dir, OutputJsonCtx *eve_ctx)
+        const uint64_t tx_id, uint8_t dir, OutputJsonCtx *eve_ctx
+#ifdef HAVE_NDPI
+        , ThreadVars *tv
+#endif
+)
 {
     HttpXFFCfg *xff_cfg = aft->filelog_ctx->xff_cfg != NULL ? aft->filelog_ctx->xff_cfg
                                                             : aft->filelog_ctx->parent_xff_cfg;
-    JsonBuilder *js = JsonBuildFileInfoRecord(p, ff, tx, tx_id, false, dir, xff_cfg, eve_ctx);
+    JsonBuilder *js = JsonBuildFileInfoRecord(p, ff, tx, tx_id, false, dir, xff_cfg, eve_ctx
+#ifdef HAVE_NDPI
+        , tv
+#endif
+    );
+
     if (unlikely(js == NULL)) {
         return;
     }
@@ -237,7 +260,12 @@ static int JsonFileLogger(ThreadVars *tv, void *thread_data, const Packet *p, co
 
     SCLogDebug("ff %p", ff);
 
-    FileWriteJsonRecord(aft, p, ff, tx, tx_id, dir, aft->filelog_ctx->eve_ctx);
+    FileWriteJsonRecord(aft, p, ff, tx, tx_id, dir, aft->filelog_ctx->eve_ctx
+#ifdef HAVE_NDPI
+        , tv
+#endif
+    );
+
     return 0;
 }
 

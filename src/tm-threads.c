@@ -1006,17 +1006,17 @@ ThreadVars *TmThreadCreate(const char *name, const char *inq_name, const char *i
 
 #ifdef HAVE_NDPI
     tv->ndpi_struct = ndpi_init_detection_module(NULL);
-    if(tv->ndpi_struct != NULL) {
-      NDPI_PROTOCOL_BITMASK protos;
-      
-      NDPI_BITMASK_SET_ALL(protos);
-      ndpi_set_protocol_detection_bitmask2(tv->ndpi_struct, &protos);
-      ndpi_finalize_initialization(tv->ndpi_struct);
-      
-      /* printf("%s - ndpi_init_detection_module()\n", __FUNCTION__); */
+    if (tv->ndpi_struct != NULL) {
+        NDPI_PROTOCOL_BITMASK protos;
+
+        NDPI_BITMASK_SET_ALL(protos);
+        ndpi_set_protocol_detection_bitmask2(tv->ndpi_struct, &protos);
+        ndpi_finalize_initialization(tv->ndpi_struct);
+
+        /* printf("%s - ndpi_init_detection_module()\n", __FUNCTION__); */
     }
 #endif
-    
+
     return tv;
 
 error:
@@ -1619,7 +1619,7 @@ static void TmThreadFree(ThreadVars *tv)
       /* printf("%s - ndpi_exit_detection_module()\n", __FUNCTION__); */
     }
 #endif
-    
+
     TmThreadsUnregisterThread(tv->id);
     SCFree(tv);
 }

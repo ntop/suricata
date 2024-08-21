@@ -166,6 +166,29 @@ static JsonBuilder *CreateEveHeaderFromFlow(const Flow *f)
     return jb;
 }
 
+#ifdef HAVE_NDPI
+void EveAddnDPIProto(Flow *f, JsonBuilder *js, ThreadVars *tv)
+{
+    jb_open_object(js, "ndpi");
+    if (f->detection_completed) {
+        jb_set_string(js, "app_protocol", ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.app_protocol));
+        jb_set_string(js, "master_protocol", ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.master_protocol));
+        jb_set_string(js, "category", ndpi_category_get_name(tv->ndpi_struct, f->detected_l7_protocol.category));
+
+        jb_open_array(js, "risks");
+        if (f->ndpi_flow->risk) {
+            u_int risk_id;
+            for (risk_id = 0; risk_id < NDPI_MAX_RISK; risk_id++)
+                if (NDPI_ISSET_BIT(f->ndpi_flow->risk, risk_id)) 
+                    jb_append_string(js, ndpi_risk2str(risk_id));
+        }
+        jb_close(js);
+    }
+
+    jb_close(js);
+}
+#endif
+
 void EveAddAppProto(Flow *f, JsonBuilder *js)
 {
     if (f->alproto) {
@@ -215,8 +238,15 @@ void EveAddFlow(Flow *f, JsonBuilder *js)
 }
 
 /* Eve format logging */
-static void EveFlowLogJSON(OutputJsonThreadCtx *aft, JsonBuilder *jb, Flow *f)
+static void EveFlowLogJSON(OutputJsonThreadCtx *aft, JsonBuilder *jb, Flow *f
+#ifdef HAVE_NDPI
+        , ThreadVars *tv
+#endif
+)
 {
+#ifdef HAVE_NDPI
+    EveAddnDPIProto(f, jb, tv);
+#endif
     EveAddAppProto(f, jb);
     jb_open_object(jb, "flow");
     EveAddFlow(f, jb);
@@ -337,7 +367,11 @@ static int JsonFlowLogger(ThreadVars *tv, void *thread_data, Flow *f)
         SCReturnInt(TM_ECODE_OK);
     }
 
-    EveFlowLogJSON(thread, jb, f);
+    EveFlowLogJSON(thread, jb, f
+#ifdef HAVE_NDPI
+        , tv
+#endif
+    );
 
     OutputJsonBuilderBuffer(jb, thread);
     jb_free(jb);

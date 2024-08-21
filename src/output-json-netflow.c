@@ -174,9 +174,30 @@ static JsonBuilder *CreateEveHeaderFromNetFlow(const Flow *f, int dir)
     return js;
 }
 
-/* JSON format logging */
-static void NetFlowLogEveToServer(JsonBuilder *js, Flow *f)
+#ifdef HAVE_NDPI
+static void NetFlowLogEveAddnDPIProto(Flow *f, JsonBuilder *js, ThreadVars *tv)
 {
+    jb_open_object(js, "ndpi");
+    if (f->detection_completed) {
+        jb_set_string(js, "app_protocol", ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.app_protocol));
+        jb_set_string(js, "master_protocol", ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.master_protocol));
+        jb_set_string(js, "category", ndpi_category_get_name(tv->ndpi_struct, f->detected_l7_protocol.category));
+    }
+    jb_close(js);
+}
+#endif
+
+/* JSON format logging */
+static void NetFlowLogEveToServer(JsonBuilder *js, Flow *f
+#ifdef HAVE_NDPI
+        , ThreadVars *tv
+#endif
+)
+{
+#ifdef HAVE_NDPI
+    NetFlowLogEveAddnDPIProto(f, js, tv);
+#endif
+
     jb_set_string(js, "app_proto",
             AppProtoToString(f->alproto_ts ? f->alproto_ts : f->alproto));
 
@@ -219,8 +240,16 @@ static void NetFlowLogEveToServer(JsonBuilder *js, Flow *f)
     }
 }
 
-static void NetFlowLogEveToClient(JsonBuilder *js, Flow *f)
+static void NetFlowLogEveToClient(JsonBuilder *js, Flow *f
+#ifdef HAVE_NDPI
+        , ThreadVars *tv
+#endif
+)
 {
+#ifdef HAVE_NDPI
+    NetFlowLogEveAddnDPIProto(f, js, tv);
+#endif
+
     jb_set_string(js, "app_proto",
             AppProtoToString(f->alproto_tc ? f->alproto_tc : f->alproto));
 
@@ -274,7 +303,11 @@ static int JsonNetFlowLogger(ThreadVars *tv, void *thread_data, Flow *f)
     JsonBuilder *jb = CreateEveHeaderFromNetFlow(f, 0);
     if (unlikely(jb == NULL))
         return TM_ECODE_OK;
-    NetFlowLogEveToServer(jb, f);
+    NetFlowLogEveToServer(jb, f
+#ifdef HAVE_NDPI
+        , tv
+#endif
+    );
     EveAddCommonOptions(&jhl->ctx->cfg, NULL, f, jb, LOG_DIR_FLOW_TOSERVER);
     OutputJsonBuilderBuffer(jb, jhl);
     jb_free(jb);
@@ -284,7 +317,11 @@ static int JsonNetFlowLogger(ThreadVars *tv, void *thread_data, Flow *f)
         jb = CreateEveHeaderFromNetFlow(f, 1);
         if (unlikely(jb == NULL))
             return TM_ECODE_OK;
-        NetFlowLogEveToClient(jb, f);
+        NetFlowLogEveToClient(jb, f
+#ifdef HAVE_NDPI
+            , tv
+#endif
+        );
         EveAddCommonOptions(&jhl->ctx->cfg, NULL, f, jb, LOG_DIR_FLOW_TOCLIENT);
         OutputJsonBuilderBuffer(jb, jhl);
         jb_free(jb);

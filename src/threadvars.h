@@ -136,9 +136,9 @@ typedef struct ThreadVars_ {
     bool break_loop;
 
 #ifdef HAVE_NDPI
-  struct ndpi_detection_module_struct * ndpi_struct;
+    struct ndpi_detection_module_struct * ndpi_struct;
 #endif
-  
+
 } ThreadVars;
 
 /** Thread setup flags: */

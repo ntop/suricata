@@ -504,11 +504,11 @@ typedef struct Flow_
     uint64_t tosrcbytecnt;
 
 #ifdef HAVE_NDPI
-  struct ndpi_flow_struct *ndpi_flow;
-  ndpi_protocol detected_l7_protocol;
-  uint8_t detection_completed;
+    struct ndpi_flow_struct *ndpi_flow;
+    ndpi_protocol detected_l7_protocol;
+    uint8_t detection_completed;
 #endif
-  
+
     Storage storage[];
 } Flow;
 

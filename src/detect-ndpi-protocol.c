@@ -206,6 +206,7 @@ static void
 PrefilterPacketnDPIProtocolSet(PrefilterPacketHeaderValue *v, void *smctx)
 {
     const DetectnDPIProtocolData *a = smctx;
+
     v->u16[0] = a->l7_protocol_id;
     v->u8[2] = (uint8_t)a->negated;
 }
@@ -214,6 +215,7 @@ static bool
 PrefilterPacketnDPIProtocolCompare(PrefilterPacketHeaderValue v, void *smctx)
 {
     const DetectnDPIProtocolData *a = smctx;
+
     if (v.u16[0] == a->l7_protocol_id &&
         v.u8[2] == (uint8_t)a->negated)
         return true;
@@ -292,7 +294,7 @@ static int DetectnDPIProtocolTest03(void)
     FAIL_IF_NULL(de_ctx);
     de_ctx->flags |= DE_QUIET;
 
-    s = DetectEngineAppendSig(de_ctx, "alert tcp any any -> any any "
+    s = DetectEngineAppendSig(de_ctx, "alert icmp any any -> any any "
             "(ndpi-protocol:ICMP; sid:1;)");
     FAIL_IF_NULL(s);
 
@@ -316,7 +318,7 @@ static int DetectnDPIProtocolTest04(void)
     FAIL_IF_NULL(de_ctx);
     de_ctx->flags |= DE_QUIET;
 
-    s = DetectEngineAppendSig(de_ctx, "alert tcp any any -> any any "
+    s = DetectEngineAppendSig(de_ctx, "alert icmp any any -> any any "
             "(ndpi-protocol:!ICMP; sid:1;)");
     FAIL_IF_NULL(s);
     FAIL_IF(s->l7_protocol_id != NDPI_PROTOCOL_UNKNOWN);

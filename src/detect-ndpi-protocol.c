@@ -81,8 +81,13 @@ static int DetectnDPIProtocolPacketMatch(
     r = nDPIProtocolEquals(f->detected_l7_protocol, data->l7_protocol_id);
     r = r ^ data->negated;
     if (r) {
-        //printf("DetectnDPIProtocolPacketMatch: MATCH on ID = %u.%u vs %u\n", f->detected_l7_protocol.app_protocol, f->detected_l7_protocol.master_protocol, data->l7_protocol_id);
-        SCReturnInt(1);
+      /*
+	printf("DetectnDPIProtocolPacketMatch: MATCH on ID = %u.%u vs %u\n",
+	f->detected_l7_protocol.app_protocol,
+	f->detected_l7_protocol.master_protocol, data->l7_protocol_id);
+      */
+
+      SCReturnInt(1);
     }
     SCReturnInt(0);
 }
@@ -93,11 +98,18 @@ static DetectnDPIProtocolData *DetectnDPIProtocolParse(const char *arg, bool neg
     struct ndpi_detection_module_struct *ndpi_struct;
     u_int16_t l7_protocol_id;
     char *l7_protocol_name = (char *)arg;
+    NDPI_PROTOCOL_BITMASK all;
 
     /* convert protocol name (string) to ID */
     ndpi_struct = ndpi_init_detection_module(NULL);
     if (unlikely(ndpi_struct == NULL))
         return NULL;
+
+    ndpi_struct = ndpi_init_detection_module(NULL);
+    NDPI_BITMASK_SET_ALL(all);
+    ndpi_set_protocol_detection_bitmask2(ndpi_struct, &all);
+    ndpi_finalize_initialization(ndpi_struct);
+
     l7_protocol_id = ndpi_get_proto_by_name(ndpi_struct, l7_protocol_name);
     ndpi_exit_detection_module(ndpi_struct);
 
@@ -106,7 +118,7 @@ static DetectnDPIProtocolData *DetectnDPIProtocolParse(const char *arg, bool neg
 
     if (!l7_protocol_id) {
         SCLogError("failure parsing nDPI protocol '%s'", l7_protocol_name);
-        return NULL; 
+        return NULL;
     }
 
     //printf("DetectnDPIProtocolParse: ID = %u (%s)\n", l7_protocol_id, l7_protocol_name);
@@ -114,6 +126,7 @@ static DetectnDPIProtocolData *DetectnDPIProtocolParse(const char *arg, bool neg
     data = SCMalloc(sizeof(DetectnDPIProtocolData));
     if (unlikely(data == NULL))
         return NULL;
+
     data->l7_protocol_id = l7_protocol_id;
     data->negated = negate;
 

@@ -48,8 +48,9 @@ typedef struct DetectnDPIProtocolData_ {
 } DetectnDPIProtocolData;
 
 static int nDPIProtocolEquals(ndpi_protocol actual_l7_protocol, u_int16_t l7_protocol_id) {
-    if (actual_l7_protocol.app_protocol == l7_protocol_id ||
-        actual_l7_protocol.master_protocol == l7_protocol_id) {
+    if ((actual_l7_protocol.app_protocol != NDPI_PROTOCOL_UNKNOWN && actual_l7_protocol.app_protocol == l7_protocol_id) ||
+        (actual_l7_protocol.master_protocol != NDPI_PROTOCOL_UNKNOWN && actual_l7_protocol.master_protocol == l7_protocol_id) ||
+        (actual_l7_protocol.app_protocol == NDPI_PROTOCOL_UNKNOWN && actual_l7_protocol.master_protocol == NDPI_PROTOCOL_UNKNOWN && l7_protocol_id == NDPI_PROTOCOL_UNKNOWN))  {
         SCReturnInt(1);
     }
     SCReturnInt(0);
@@ -80,6 +81,7 @@ static int DetectnDPIProtocolPacketMatch(
     r = nDPIProtocolEquals(f->detected_l7_protocol, data->l7_protocol_id);
     r = r ^ data->negated;
     if (r) {
+        //printf("DetectnDPIProtocolPacketMatch: MATCH on ID = %u.%u vs %u\n", f->detected_l7_protocol.app_protocol, f->detected_l7_protocol.master_protocol, data->l7_protocol_id);
         SCReturnInt(1);
     }
     SCReturnInt(0);
@@ -92,11 +94,22 @@ static DetectnDPIProtocolData *DetectnDPIProtocolParse(const char *arg, bool neg
     u_int16_t l7_protocol_id;
     char *l7_protocol_name = (char *)arg;
 
+    /* convert protocol name (string) to ID */
     ndpi_struct = ndpi_init_detection_module(NULL);
     if (unlikely(ndpi_struct == NULL))
         return NULL;
     l7_protocol_id = ndpi_get_proto_by_name(ndpi_struct, l7_protocol_name);
     ndpi_exit_detection_module(ndpi_struct);
+
+    /* or fallback to ID parsing (number) */
+    if (l7_protocol_id == NDPI_PROTOCOL_UNKNOWN) l7_protocol_id = atoi(l7_protocol_name);
+
+    if (!l7_protocol_id) {
+        SCLogError("failure parsing nDPI protocol '%s'", l7_protocol_name);
+        return NULL; 
+    }
+
+    //printf("DetectnDPIProtocolParse: ID = %u (%s)\n", l7_protocol_id, l7_protocol_name);
 
     data = SCMalloc(sizeof(DetectnDPIProtocolData));
     if (unlikely(data == NULL))
@@ -197,6 +210,7 @@ PrefilterPacketnDPIProtocolMatch(DetectEngineThreadCtx *det_ctx, Packet *p, cons
     if (f->detected_l7_protocol.app_protocol != NDPI_PROTOCOL_UNKNOWN ||
         f->detected_l7_protocol.master_protocol != NDPI_PROTOCOL_UNKNOWN) {
         if (nDPIProtocolEquals(f->detected_l7_protocol, ctx->v1.u16[0]) ^ negated) {
+            //printf("PrefilterPacketnDPIProtocolMatch: MATCH on ID = %u.%u vs %u\n", f->detected_l7_protocol.app_protocol, f->detected_l7_protocol.master_protocol, ctx->v1.u16[0]);
             PrefilterAddSids(&det_ctx->pmq, ctx->sigs_array, ctx->sigs_cnt);
         }
     }

@@ -35,9 +35,6 @@
 
 #ifdef HAVE_NDPI
 
-//#include "app-layer.h"
-//#include "app-layer-parser.h"
-
 #ifdef UNITTESTS
 static void DetectnDPIProtocolRegisterTests(void);
 #endif
@@ -81,13 +78,8 @@ static int DetectnDPIProtocolPacketMatch(
     r = nDPIProtocolEquals(f->detected_l7_protocol, data->l7_protocol_id);
     r = r ^ data->negated;
     if (r) {
-      /*
-	printf("DetectnDPIProtocolPacketMatch: MATCH on ID = %u.%u vs %u\n",
-	f->detected_l7_protocol.app_protocol,
-	f->detected_l7_protocol.master_protocol, data->l7_protocol_id);
-      */
-
-      SCReturnInt(1);
+        //printf("DetectnDPIProtocolPacketMatch: MATCH on ID = %u.%u vs %u\n", f->detected_l7_protocol.app_protocol, f->detected_l7_protocol.master_protocol, data->l7_protocol_id);
+        SCReturnInt(1);
     }
     SCReturnInt(0);
 }
@@ -120,8 +112,6 @@ static DetectnDPIProtocolData *DetectnDPIProtocolParse(const char *arg, bool neg
         SCLogError("failure parsing nDPI protocol '%s'", l7_protocol_name);
         return NULL;
     }
-
-    //printf("DetectnDPIProtocolParse: ID = %u (%s)\n", l7_protocol_id, l7_protocol_name);
 
     data = SCMalloc(sizeof(DetectnDPIProtocolData));
     if (unlikely(data == NULL))
@@ -223,7 +213,6 @@ PrefilterPacketnDPIProtocolMatch(DetectEngineThreadCtx *det_ctx, Packet *p, cons
     if (f->detected_l7_protocol.app_protocol != NDPI_PROTOCOL_UNKNOWN ||
         f->detected_l7_protocol.master_protocol != NDPI_PROTOCOL_UNKNOWN) {
         if (nDPIProtocolEquals(f->detected_l7_protocol, ctx->v1.u16[0]) ^ negated) {
-            //printf("PrefilterPacketnDPIProtocolMatch: MATCH on ID = %u.%u vs %u\n", f->detected_l7_protocol.app_protocol, f->detected_l7_protocol.master_protocol, ctx->v1.u16[0]);
             PrefilterAddSids(&det_ctx->pmq, ctx->sigs_array, ctx->sigs_cnt);
         }
     }
@@ -269,7 +258,7 @@ void DetectnDPIProtocolRegister(void)
 {
     sigmatch_table[DETECT_NDPI_PROTOCOL].name = "ndpi-protocol";
     sigmatch_table[DETECT_NDPI_PROTOCOL].desc = "match on the detected nDPI protocol";
-    sigmatch_table[DETECT_NDPI_PROTOCOL].url = "/rules/dpi.html#ndpi-protocol"; // TODO
+    sigmatch_table[DETECT_NDPI_PROTOCOL].url = "/rules/index.html";
     sigmatch_table[DETECT_NDPI_PROTOCOL].Match =
         DetectnDPIProtocolPacketMatch;
     sigmatch_table[DETECT_NDPI_PROTOCOL].Setup =
@@ -295,9 +284,9 @@ void DetectnDPIProtocolRegister(void)
 
 static int DetectnDPIProtocolTest01(void)
 {
-    DetectnDPIProtocolData *data = DetectnDPIProtocolParse("ICMP", false);
+    DetectnDPIProtocolData *data = DetectnDPIProtocolParse("HTTP", false);
     FAIL_IF_NULL(data);
-    FAIL_IF(data->l7_protocol_id != NDPI_PROTOCOL_IP_ICMP);
+    FAIL_IF(data->l7_protocol_id != NDPI_PROTOCOL_HTTP);
     FAIL_IF(data->negated != 0);
     DetectnDPIProtocolFree(NULL, data);
     PASS;
@@ -305,9 +294,9 @@ static int DetectnDPIProtocolTest01(void)
 
 static int DetectnDPIProtocolTest02(void)
 {
-    DetectnDPIProtocolData *data = DetectnDPIProtocolParse("ICMP", true);
+    DetectnDPIProtocolData *data = DetectnDPIProtocolParse("HTTP", true);
     FAIL_IF_NULL(data);
-    FAIL_IF(data->l7_protocol_id != NDPI_PROTOCOL_IP_ICMP);
+    FAIL_IF(data->l7_protocol_id != NDPI_PROTOCOL_HTTP);
     FAIL_IF(data->negated == 0);
     DetectnDPIProtocolFree(NULL, data);
     PASS;
@@ -321,8 +310,8 @@ static int DetectnDPIProtocolTest03(void)
     FAIL_IF_NULL(de_ctx);
     de_ctx->flags |= DE_QUIET;
 
-    s = DetectEngineAppendSig(de_ctx, "alert icmp any any -> any any "
-            "(ndpi-protocol:ICMP; sid:1;)");
+    s = DetectEngineAppendSig(de_ctx, "alert tcp any any -> any any "
+            "(ndpi-protocol:HTTP; sid:1;)");
     FAIL_IF_NULL(s);
 
     FAIL_IF(s->l7_protocol_id != NDPI_PROTOCOL_UNKNOWN);
@@ -331,7 +320,7 @@ static int DetectnDPIProtocolTest03(void)
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx);
 
     data = (DetectnDPIProtocolData *)s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx;
-    FAIL_IF(data->l7_protocol_id != NDPI_PROTOCOL_IP_ICMP);
+    FAIL_IF(data->l7_protocol_id != NDPI_PROTOCOL_HTTP);
     FAIL_IF(data->negated);
     DetectEngineCtxFree(de_ctx);
     PASS;
@@ -345,8 +334,8 @@ static int DetectnDPIProtocolTest04(void)
     FAIL_IF_NULL(de_ctx);
     de_ctx->flags |= DE_QUIET;
 
-    s = DetectEngineAppendSig(de_ctx, "alert icmp any any -> any any "
-            "(ndpi-protocol:!ICMP; sid:1;)");
+    s = DetectEngineAppendSig(de_ctx, "alert tcp any any -> any any "
+            "(ndpi-protocol:!HTTP; sid:1;)");
     FAIL_IF_NULL(s);
     FAIL_IF(s->l7_protocol_id != NDPI_PROTOCOL_UNKNOWN);
     FAIL_IF(s->flags & SIG_FLAG_APPLAYER);
@@ -356,7 +345,7 @@ static int DetectnDPIProtocolTest04(void)
 
     data = (DetectnDPIProtocolData *)s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx;
     FAIL_IF_NULL(data);
-    FAIL_IF(data->l7_protocol_id != NDPI_PROTOCOL_IP_ICMP);
+    FAIL_IF(data->l7_protocol_id != NDPI_PROTOCOL_HTTP);
     FAIL_IF(data->negated == 0);
 
     DetectEngineCtxFree(de_ctx);

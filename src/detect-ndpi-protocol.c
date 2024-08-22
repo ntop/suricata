@@ -63,9 +63,16 @@ static int DetectnDPIProtocolPacketMatch(
     const DetectnDPIProtocolData *data = (const DetectnDPIProtocolData *)ctx;
 
     /* if the sig is PD-only we only match when PD packet flags are set */
+    /*
     if (s->type == SIG_TYPE_PDONLY &&
             (p->flags & (PKT_PROTO_DETECT_TS_DONE | PKT_PROTO_DETECT_TC_DONE)) == 0) {
         SCLogDebug("packet %"PRIu64": flags not set", p->pcap_cnt);
+        SCReturnInt(0);
+    }
+    */
+
+    if (!p->flow->detection_completed) {
+        SCLogDebug("packet %"PRIu64": ndpi protocol not yet detected", p->pcap_cnt);
         SCReturnInt(0);
     }
 
@@ -78,7 +85,10 @@ static int DetectnDPIProtocolPacketMatch(
     r = nDPIProtocolEquals(f->detected_l7_protocol, data->l7_protocol_id);
     r = r ^ data->negated;
     if (r) {
-        //printf("DetectnDPIProtocolPacketMatch: MATCH on ID = %u.%u vs %u\n", f->detected_l7_protocol.app_protocol, f->detected_l7_protocol.master_protocol, data->l7_protocol_id);
+        SCLogDebug("ndpi protocol match on protocol = %u.%u (match %u)",
+            f->detected_l7_protocol.app_protocol,
+            f->detected_l7_protocol.master_protocol,
+            data->l7_protocol_id);
         SCReturnInt(1);
     }
     SCReturnInt(0);
@@ -195,13 +205,6 @@ static void
 PrefilterPacketnDPIProtocolMatch(DetectEngineThreadCtx *det_ctx, Packet *p, const void *pectx)
 {
     const PrefilterPacketHeaderCtx *ctx = pectx;
-
-    /*
-    if (!PrefilterPacketHeaderExtraMatch(ctx, p)) {
-        SCLogDebug("packet %"PRIu64": extra match failed", p->pcap_cnt);
-        SCReturn;
-    }
-    */
 
     if (p->flow == NULL || !p->flow->detection_completed) {
         SCLogDebug("packet %"PRIu64": no flow, no l7_protocol", p->pcap_cnt);

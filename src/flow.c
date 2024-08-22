@@ -388,16 +388,18 @@ void FlowHandlePacketUpdate(Flow *f, Packet *p, ThreadVars *tv, DecodeThreadVars
     SCLogDebug("packet %"PRIu64" -- flow %p", p->pcap_cnt, f);
 
 #ifdef HAVE_NDPI
-    if (tv->ndpi_struct && f->ndpi_flow && (!f->detection_completed) && (p->ip_len > 0)) {
+    if (tv->ndpi_struct &&
+        f->ndpi_flow &&
+        !f->detection_completed &&
+        p->ip_len > 0) {
         uint64_t time_ms = ((uint64_t) p->ts.secs) * 1000 /* TICK_RESOLUTION */ + p->ts.usecs / (1000000 / 1000 /* TICK_RESOLUTION */);
 
         f->detected_l7_protocol = ndpi_detection_process_packet(tv->ndpi_struct, f->ndpi_flow,
                                     PacketIsIPv4(p) ? (void*)PacketGetIPv4(p) : (void*)PacketGetIPv6(p),
                                     p->ip_len, time_ms, NULL);
-#if 0
-        printf("%s - ndpi_detection_process_packet() [len: %d] [%u:%u]\n", __FUNCTION__, p->ip_len,
-           f->detected_l7_protocol.master_protocol, f->detected_l7_protocol.app_protocol);
-#endif
+
+        //SCLogDebug("%s - ndpi_detection_process_packet() [len: %d] [%u:%u]", __FUNCTION__, p->ip_len,
+        //   f->detected_l7_protocol.master_protocol, f->detected_l7_protocol.app_protocol);
 
         if (ndpi_is_protocol_detected(f->detected_l7_protocol) != 0) {
             if ((f->detected_l7_protocol.master_protocol != NDPI_PROTOCOL_UNKNOWN) ||
@@ -416,8 +418,7 @@ void FlowHandlePacketUpdate(Flow *f, Packet *p, ThreadVars *tv, DecodeThreadVars
         }
 
         if (f->detection_completed) {
-            printf("%s - Detected protocol: %s | app protocol: %s | category: %s\n",
-                __FUNCTION__,
+            SCLogDebug("Detected protocol: %s | app protocol: %s | category: %s",
                 ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.master_protocol),
                 ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.app_protocol),
                 ndpi_category_get_name(tv->ndpi_struct, f->detected_l7_protocol.category));

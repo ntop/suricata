@@ -198,8 +198,8 @@ JsonBuilder *JsonBuildFileInfoRecord(const Packet *p, const File *ff, void *tx,
 #ifdef HAVE_NDPI
     jb_open_object(js, "ndpi");
     if (p->flow->detection_completed) {
-        jb_set_string(js, "app_protocol", ndpi_get_proto_name(tv->ndpi_struct, p->flow->detected_l7_protocol.app_protocol));
-        jb_set_string(js, "master_protocol", ndpi_get_proto_name(tv->ndpi_struct, p->flow->detected_l7_protocol.master_protocol));
+        jb_set_string(js, "app_protocol", ndpi_get_proto_name(tv->ndpi_struct, p->flow->detected_l7_protocol.proto.app_protocol));
+        jb_set_string(js, "master_protocol", ndpi_get_proto_name(tv->ndpi_struct, p->flow->detected_l7_protocol.proto.master_protocol));
         jb_set_string(js, "category", ndpi_category_get_name(tv->ndpi_struct, p->flow->detected_l7_protocol.category));
     }
     jb_close(js);

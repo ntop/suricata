@@ -402,10 +402,10 @@ void FlowHandlePacketUpdate(Flow *f, Packet *p, ThreadVars *tv, DecodeThreadVars
         //   f->detected_l7_protocol.master_protocol, f->detected_l7_protocol.app_protocol);
 
         if (ndpi_is_protocol_detected(f->detected_l7_protocol) != 0) {
-            if ((f->detected_l7_protocol.master_protocol != NDPI_PROTOCOL_UNKNOWN) ||
-                (f->detected_l7_protocol.app_protocol != NDPI_PROTOCOL_UNKNOWN)) {
-                f->detection_completed = 1;
-            }
+
+	  if(!ndpi_is_proto_unknown(f->detected_l7_protocol.proto)) {
+	    f->detection_completed = 1;
+	  }
         } else {
             u_int16_t max_num_pkts = (f->proto == IPPROTO_UDP) ? 8 : 24;
 

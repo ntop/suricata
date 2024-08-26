@@ -171,8 +171,8 @@ void EveAddnDPIProto(Flow *f, JsonBuilder *js, ThreadVars *tv)
 {
     jb_open_object(js, "ndpi");
     if (f->detection_completed) {
-        jb_set_string(js, "app_protocol", ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.app_protocol));
-        jb_set_string(js, "master_protocol", ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.master_protocol));
+        jb_set_string(js, "app_protocol", ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.proto.app_protocol));
+        jb_set_string(js, "master_protocol", ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.proto.master_protocol));
         jb_set_string(js, "category", ndpi_category_get_name(tv->ndpi_struct, f->detected_l7_protocol.category));
 
         jb_open_array(js, "risks");

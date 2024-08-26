@@ -40,18 +40,10 @@ static void DetectnDPIProtocolRegisterTests(void);
 #endif
 
 typedef struct DetectnDPIProtocolData_ {
-    u_int16_t l7_protocol_id;
-    uint8_t negated;
+  ndpi_master_app_protocol l7_protocol_id;
+  uint8_t negated;
 } DetectnDPIProtocolData;
 
-static int nDPIProtocolEquals(ndpi_protocol actual_l7_protocol, u_int16_t l7_protocol_id) {
-    if ((actual_l7_protocol.app_protocol != NDPI_PROTOCOL_UNKNOWN && actual_l7_protocol.app_protocol == l7_protocol_id) ||
-        (actual_l7_protocol.master_protocol != NDPI_PROTOCOL_UNKNOWN && actual_l7_protocol.master_protocol == l7_protocol_id) ||
-        (actual_l7_protocol.app_protocol == NDPI_PROTOCOL_UNKNOWN && actual_l7_protocol.master_protocol == NDPI_PROTOCOL_UNKNOWN && l7_protocol_id == NDPI_PROTOCOL_UNKNOWN))  {
-        SCReturnInt(1);
-    }
-    SCReturnInt(0);
-}
 
 static int DetectnDPIProtocolPacketMatch(
         DetectEngineThreadCtx *det_ctx,
@@ -59,7 +51,7 @@ static int DetectnDPIProtocolPacketMatch(
 {
     SCEnter();
 
-    bool r = false;
+    bool r;
     const DetectnDPIProtocolData *data = (const DetectnDPIProtocolData *)ctx;
 
     /* if the sig is PD-only we only match when PD packet flags are set */
@@ -82,8 +74,9 @@ static int DetectnDPIProtocolPacketMatch(
         SCReturnInt(0);
     }
 
-    r = nDPIProtocolEquals(f->detected_l7_protocol, data->l7_protocol_id);
+    r = ndpi_is_proto_equals(f->detected_l7_protocol.proto, data->l7_protocol_id, false);
     r = r ^ data->negated;
+    
     if (r) {
         SCLogDebug("ndpi protocol match on protocol = %u.%u (match %u)",
             f->detected_l7_protocol.app_protocol,
@@ -98,7 +91,7 @@ static DetectnDPIProtocolData *DetectnDPIProtocolParse(const char *arg, bool neg
 {
     DetectnDPIProtocolData *data;
     struct ndpi_detection_module_struct *ndpi_struct;
-    u_int16_t l7_protocol_id;
+    ndpi_master_app_protocol l7_protocol_id;
     char *l7_protocol_name = (char *)arg;
     NDPI_PROTOCOL_BITMASK all;
 
@@ -112,22 +105,19 @@ static DetectnDPIProtocolData *DetectnDPIProtocolParse(const char *arg, bool neg
     ndpi_set_protocol_detection_bitmask2(ndpi_struct, &all);
     ndpi_finalize_initialization(ndpi_struct);
 
-    l7_protocol_id = ndpi_get_proto_by_name(ndpi_struct, l7_protocol_name);
+    l7_protocol_id = ndpi_get_protocol_by_name(ndpi_struct, l7_protocol_name);
     ndpi_exit_detection_module(ndpi_struct);
 
-    /* or fallback to ID parsing (number) */
-    if (l7_protocol_id == NDPI_PROTOCOL_UNKNOWN) l7_protocol_id = atoi(l7_protocol_name);
-
-    if (!l7_protocol_id) {
-        SCLogError("failure parsing nDPI protocol '%s'", l7_protocol_name);
-        return NULL;
+    if (ndpi_is_proto_unknown(l7_protocol_id)) {
+      SCLogError("failure parsing nDPI protocol '%s'", l7_protocol_name);
+      return NULL;
     }
 
     data = SCMalloc(sizeof(DetectnDPIProtocolData));
     if (unlikely(data == NULL))
         return NULL;
 
-    data->l7_protocol_id = l7_protocol_id;
+    memcpy(&data->l7_protocol_id, &l7_protocol_id, sizeof(ndpi_master_app_protocol));
     data->negated = negate;
 
     return data;
@@ -144,7 +134,7 @@ static bool HasConflicts(const DetectnDPIProtocolData *us, const DetectnDPIProto
         return true;
 
     /* check for duplicate */
-    if (us->l7_protocol_id == them->l7_protocol_id)
+    if (ndpi_is_proto_equals(us->l7_protocol_id, them->l7_protocol_id, true))
         return true;
 
     return false;
@@ -212,10 +202,12 @@ PrefilterPacketnDPIProtocolMatch(DetectEngineThreadCtx *det_ctx, Packet *p, cons
     }
 
     Flow *f = p->flow;
-    bool negated = (bool)ctx->v1.u8[2];
-    if (f->detected_l7_protocol.app_protocol != NDPI_PROTOCOL_UNKNOWN ||
-        f->detected_l7_protocol.master_protocol != NDPI_PROTOCOL_UNKNOWN) {
-        if (nDPIProtocolEquals(f->detected_l7_protocol, ctx->v1.u16[0]) ^ negated) {
+    bool negated = (bool)ctx->v1.u8[4];
+
+    if (!ndpi_is_proto_unknown(f->detected_l7_protocol.proto)) {
+      ndpi_master_app_protocol p = { ctx->v1.u16[0], ctx->v1.u16[1] };
+      
+      if (ndpi_is_proto_equals(f->detected_l7_protocol.proto, p, false) ^ negated) {
             PrefilterAddSids(&det_ctx->pmq, ctx->sigs_array, ctx->sigs_cnt);
         }
     }
@@ -226,19 +218,19 @@ PrefilterPacketnDPIProtocolSet(PrefilterPacketHeaderValue *v, void *smctx)
 {
     const DetectnDPIProtocolData *a = smctx;
 
-    v->u16[0] = a->l7_protocol_id;
-    v->u8[2] = (uint8_t)a->negated;
+    v->u16[0] = a->l7_protocol_id.master_protocol;
+    v->u16[1] = a->l7_protocol_id.app_protocol;
+    v->u8[4]  = (uint8_t)a->negated;
 }
 
 static bool
 PrefilterPacketnDPIProtocolCompare(PrefilterPacketHeaderValue v, void *smctx)
 {
     const DetectnDPIProtocolData *a = smctx;
-
-    if (v.u16[0] == a->l7_protocol_id &&
-        v.u8[2] == (uint8_t)a->negated)
-        return true;
-    return false;
+    ndpi_master_app_protocol      p = { v.u16[0], v.u16[1] };
+    bool                    negated = (bool)v.u8[4];
+				       
+    return (ndpi_is_proto_equals(a->l7_protocol_id, p, false) ^ negated);
 }
 
 static int PrefilterSetupnDPIProtocol(DetectEngineCtx *de_ctx, SigGroupHead *sgh)

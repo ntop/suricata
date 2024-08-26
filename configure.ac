@@ -2395,33 +2395,32 @@ if test "${enable_ebpf}" = "yes" || test "${enable_nfqueue}" = "yes" || test "${
   AC_DEFINE([CAPTURE_OFFLOAD], [1],[Building flow capture bypass code])
 fi
 
-# Check nDPI
-AC_MSG_CHECKING(for nDPI source)
-HERE=`pwd`
-if test -d "$HERE/nDPI" ; then :
-  NDPI_HOME=$HERE/nDPI
-elif test -d "$HERE/../nDPI" ; then :
-  NDPI_HOME=$HERE/../nDPI
-elif test -d "$HOME/nDPI" ; then :
-  NDPI_HOME=$HOME/nDPI
-fi
+AC_ARG_ENABLE(ndpi,  AS_HELP_STRING([--enable-ndpi], [Enable nDPI support]),[enable_ndpi=$enableval],[enable_ndpi=no])
 
-if test ! -z "$NDPI_HOME" ; then :
-  AC_MSG_RESULT(found in $NDPI_HOME)
-  NDPI_LIB=$NDPI_HOME/src/lib/libndpi.a
-  AC_MSG_CHECKING(for $NDPI_LIB)
-  if test -r $NDPI_LIB ; then :
+NDPI_HOME=
+AC_ARG_WITH([ndpi], [  --with-ndpi=<path>    path to nDPI source tree.], [NDPI_HOME="$withval"])
+
+if ! test -z "${NDPI_HOME}" = "yes"; then
+ AC_MSG_CHECKING(for nDPI source)
+
+ if test ! -z "$NDPI_HOME" ; then :
+   AC_MSG_RESULT(found in $NDPI_HOME)
+   NDPI_LIB=$NDPI_HOME/src/lib/libndpi.a
+   AC_MSG_CHECKING(for $NDPI_LIB)
+   if test -r $NDPI_LIB ; then :
      AC_MSG_RESULT(found $NDPI_LIB)
-  else
+   else
      AC_MSG_RESULT(not found $NDPI_LIB: compiling)
      cd $NDPI_HOME; ./autogen.sh; ${MAKE}; cd -
-  fi
+   fi
   
-  CPPFLAGS="${CPPFLAGS} -I$NDPI_HOME/src/include"
-  LIBS="${LIBS} $NDPI_HOME/src/lib/libndpi.a"
-  AC_DEFINE_UNQUOTED(HAVE_NDPI, "1", [nDPI is present])
-else
-  AC_MSG_RESULT(not found)
+   CPPFLAGS="${CPPFLAGS} -I$NDPI_HOME/src/include"
+   LIBS="${LIBS} $NDPI_HOME/src/lib/libndpi.a"
+   AC_DEFINE_UNQUOTED(HAVE_NDPI, "1", [nDPI is present])
+   enable_ndpi="yes ($NDPI_HOME)"
+ else
+   AC_MSG_RESULT(not found)
+ fi
 fi
 
 # Add diagnostic filename
@@ -2573,6 +2572,7 @@ SURICATA_BUILD_CONF="Suricata Configuration:
   liblz4 support:                          ${enable_liblz4}
   Landlock support:                        ${enable_landlock}
   Systemd support:                         ${enable_systemd}
+  nDPI support:                            ${enable_ndpi}
 
   Rust support:                            ${enable_rust}
   Rust strict mode:                        ${enable_rust_strict}

@@ -22,9 +22,9 @@
  * \author Alfredo Cardigliano <cardigliano@ntop.org>
  */
 
-#ifndef SURICATA_NDPI_PROTOCOL_H
-#define SURICATA_NDPI_PROTOCOL_H
+#ifndef SURICATA_NDPI_RISK_H
+#define SURICATA_NDPI_RISK_H
 
-void DetectnDPIProtocolRegister(void);
+void DetectnDPIRiskRegister(void);
 
-#endif /* SURICATA_NDPI_PROTOCOL_H */
+#endif /* SURICATA_NDPI_RISK_H */

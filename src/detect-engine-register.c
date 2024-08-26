@@ -218,6 +218,7 @@
 #include "detect-ja4-hash.h"
 #ifdef HAVE_NDPI
 #include "detect-ndpi-protocol.h"
+#include "detect-ndpi-risk.h"
 #endif
 
 #include "detect-bypass.h"
@@ -710,6 +711,7 @@ void SigTableSetup(void)
 
 #ifdef HAVE_NDPI
     DetectnDPIProtocolRegister();
+    DetectnDPIRiskRegister();
 #endif
 
     /* close keyword registration */

@@ -2420,6 +2420,7 @@ if ! test -z "${NDPI_HOME}" = "yes"; then
    enable_ndpi="yes ($NDPI_HOME)"
  else
    AC_MSG_RESULT(not found)
+   enable_ndpi="no"
  fi
 fi
 

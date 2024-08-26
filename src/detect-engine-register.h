@@ -34,6 +34,7 @@ enum DetectKeywordId {
      * picked over ones lower in the list */
 #ifdef HAVE_NDPI
     DETECT_NDPI_PROTOCOL,
+    DETECT_NDPI_RISK,
 #endif
     DETECT_AL_APP_LAYER_PROTOCOL,
     DETECT_ACK,

@@ -79,6 +79,49 @@ typedef struct JsonFileLogThread_ {
     OutputJsonThreadCtx *ctx;
 } JsonFileLogThread;
 
+#ifdef HAVE_NDPI
+void ndpiJsonBuilder (Flow *f, JsonBuilder *js, ThreadVars *tv) {
+  if (f->detection_completed) {
+#if 0
+    ndpi_serializer s;
+
+    if (ndpi_init_serializer(&s, ndpi_serialization_format_json) == 0) {
+      char *buffer;
+      u_int32_t buffer_len;
+
+      buffer = ndpi_serializer_get_buffer(&s, &buffer_len);
+
+      ndpi_dpi2json(tv->ndpi_struct, f->ndpi_flow,
+		    f->detected_l7_protocol, &s);
+
+      jb_set_string_from_bytes(js, "ndpi", (const uint8_t*)buffer, buffer_len);
+      // jb_set_string(js, "ndpi", (const uint8_t*)buffer);
+      ndpi_term_serializer(&s);
+    }  
+#else
+    jb_open_object(js, "ndpi");
+    jb_set_string(js, "app_protocol", ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.proto.app_protocol));
+    jb_set_string(js, "master_protocol", ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.proto.master_protocol));
+    jb_set_string(js, "category", ndpi_category_get_name(tv->ndpi_struct, f->detected_l7_protocol.category));
+    
+    if (f->ndpi_flow->risk) {
+      u_int risk_id;
+      
+      jb_open_array(js, "risks");
+
+      for (risk_id = 0; risk_id < NDPI_MAX_RISK; risk_id++)
+	if (NDPI_ISSET_BIT(f->ndpi_flow->risk, risk_id))
+	  jb_append_string(js, ndpi_risk2str(risk_id));
+      
+      jb_close(js);
+    }
+    
+    jb_close(js);
+  }
+#endif
+}
+#endif
+
 JsonBuilder *JsonBuildFileInfoRecord(const Packet *p, const File *ff, void *tx,
         const uint64_t tx_id, const bool stored, uint8_t dir, HttpXFFCfg *xff_cfg,
         OutputJsonCtx *eve_ctx
@@ -196,13 +239,7 @@ JsonBuilder *JsonBuildFileInfoRecord(const Packet *p, const File *ff, void *tx,
     jb_set_string(js, "app_proto", AppProtoToString(p->flow->alproto));
 
 #ifdef HAVE_NDPI
-    jb_open_object(js, "ndpi");
-    if (p->flow->detection_completed) {
-        jb_set_string(js, "app_protocol", ndpi_get_proto_name(tv->ndpi_struct, p->flow->detected_l7_protocol.proto.app_protocol));
-        jb_set_string(js, "master_protocol", ndpi_get_proto_name(tv->ndpi_struct, p->flow->detected_l7_protocol.proto.master_protocol));
-        jb_set_string(js, "category", ndpi_category_get_name(tv->ndpi_struct, p->flow->detected_l7_protocol.category));
-    }
-    jb_close(js);
+    ndpiJsonBuilder(p->flow, js, tv);
 #endif
 
     jb_open_object(js, "fileinfo");

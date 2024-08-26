@@ -174,19 +174,6 @@ static JsonBuilder *CreateEveHeaderFromNetFlow(const Flow *f, int dir)
     return js;
 }
 
-#ifdef HAVE_NDPI
-static void NetFlowLogEveAddnDPIProto(Flow *f, JsonBuilder *js, ThreadVars *tv)
-{
-    jb_open_object(js, "ndpi");
-    if (f->detection_completed) {
-        jb_set_string(js, "app_protocol", ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.proto.app_protocol));
-        jb_set_string(js, "master_protocol", ndpi_get_proto_name(tv->ndpi_struct, f->detected_l7_protocol.proto.master_protocol));
-        jb_set_string(js, "category", ndpi_category_get_name(tv->ndpi_struct, f->detected_l7_protocol.category));
-    }
-    jb_close(js);
-}
-#endif
-
 /* JSON format logging */
 static void NetFlowLogEveToServer(JsonBuilder *js, Flow *f
 #ifdef HAVE_NDPI
@@ -195,7 +182,7 @@ static void NetFlowLogEveToServer(JsonBuilder *js, Flow *f
 )
 {
 #ifdef HAVE_NDPI
-    NetFlowLogEveAddnDPIProto(f, js, tv);
+  ndpiJsonBuilder(f, js, tv);
 #endif
 
     jb_set_string(js, "app_proto",
@@ -247,7 +234,7 @@ static void NetFlowLogEveToClient(JsonBuilder *js, Flow *f
 )
 {
 #ifdef HAVE_NDPI
-    NetFlowLogEveAddnDPIProto(f, js, tv);
+  ndpiJsonBuilder(f, js, tv);
 #endif
 
     jb_set_string(js, "app_proto",

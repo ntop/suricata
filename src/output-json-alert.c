@@ -660,7 +660,7 @@ static int AlertJson(ThreadVars *tv, JsonAlertLogThread *aft, const Packet *p)
             }
 
 #ifdef HAVE_NDPI
-            EveAddnDPIProto(p->flow, jb, tv);
+            ndpiJsonBuilder(p->flow, jb, tv);
 #endif
             EveAddAppProto(p->flow, jb);
 

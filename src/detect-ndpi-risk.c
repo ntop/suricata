@@ -6,7 +6,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.    See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
@@ -40,228 +40,228 @@ static void DetectnDPIRiskRegisterTests(void);
 #endif
 
 typedef struct DetectnDPIRiskData_ {
-  ndpi_risk risk_mask;
-  uint8_t negated;
+    ndpi_risk risk_mask;
+    uint8_t negated;
 } DetectnDPIRiskData;
 
 
 static int DetectnDPIRiskPacketMatch(DetectEngineThreadCtx *det_ctx,
-				     Packet *p, const Signature *s, const SigMatchCtx *ctx)
+				         Packet *p, const Signature *s, const SigMatchCtx *ctx)
 {
-  SCEnter();
+    SCEnter();
 
-  bool r;
-  const DetectnDPIRiskData *data = (const DetectnDPIRiskData *)ctx;
+    bool r;
+    const DetectnDPIRiskData *data = (const DetectnDPIRiskData *)ctx;
 
-  if (!p->flow->detection_completed) {
-    SCLogDebug("packet %"PRIu64": ndpi protocol not yet detected", p->pcap_cnt);
+    if (!p->flow->detection_completed) {
+        SCLogDebug("packet %"PRIu64": ndpi protocol not yet detected", p->pcap_cnt);
+        SCReturnInt(0);
+    }
+
+    const Flow *f = p->flow;
+    if (f == NULL) {
+        SCLogDebug("packet %"PRIu64": no flow", p->pcap_cnt);
+        SCReturnInt(0);
+    }
+
+    r = f->ndpi_flow->risk_mask & data->risk_mask;
+    r = r ^ data->negated;
+
+    if (r) {
+        SCLogDebug("ndpi protocol match on risk = %llu (match %llu)",
+	             (unsigned long long)f->ndpi_flow->risk_mask,
+	             (unsigned long long)data->risk);
+        SCReturnInt(1);
+    }
     SCReturnInt(0);
-  }
-
-  const Flow *f = p->flow;
-  if (f == NULL) {
-    SCLogDebug("packet %"PRIu64": no flow", p->pcap_cnt);
-    SCReturnInt(0);
-  }
-
-  r = f->ndpi_flow->risk_mask & data->risk_mask;
-  r = r ^ data->negated;
-
-  if (r) {
-    SCLogDebug("ndpi protocol match on risk = %llu (match %llu)",
-	       (unsigned long long)f->ndpi_flow->risk_mask,
-	       (unsigned long long)data->risk);
-    SCReturnInt(1);
-  }
-  SCReturnInt(0);
 }
 
 static DetectnDPIRiskData *DetectnDPIRiskParse(const char *arg, bool negate)
 {
-  DetectnDPIRiskData *data;
-  struct ndpi_detection_module_struct *ndpi_struct;
-  ndpi_risk risk_mask;
-  NDPI_PROTOCOL_BITMASK all;
+    DetectnDPIRiskData *data;
+    struct ndpi_detection_module_struct *ndpi_struct;
+    ndpi_risk risk_mask;
+    NDPI_PROTOCOL_BITMASK all;
 
-  /* convert protocol name (string) to ID */
-  ndpi_struct = ndpi_init_detection_module(NULL);
-  if (unlikely(ndpi_struct == NULL))
-    return NULL;
+    /* convert protocol name (string) to ID */
+    ndpi_struct = ndpi_init_detection_module(NULL);
+    if (unlikely(ndpi_struct == NULL))
+        return NULL;
 
-  ndpi_struct = ndpi_init_detection_module(NULL);
-  NDPI_BITMASK_SET_ALL(all);
-  ndpi_set_protocol_detection_bitmask2(ndpi_struct, &all);
-  ndpi_finalize_initialization(ndpi_struct);
+    ndpi_struct = ndpi_init_detection_module(NULL);
+    NDPI_BITMASK_SET_ALL(all);
+    ndpi_set_protocol_detection_bitmask2(ndpi_struct, &all);
+    ndpi_finalize_initialization(ndpi_struct);
 
 #if 0
-  /* TODO: implement protocol parsing */
-  risk_mask = ndpi_get_protocol_by_name(ndpi_struct, l7_protocol_name);
-  ndpi_exit_detection_module(ndpi_struct);
+    /* TODO: implement protocol parsing */
+    risk_mask = ndpi_get_protocol_by_name(ndpi_struct, l7_protocol_name);
+    ndpi_exit_detection_module(ndpi_struct);
 
-  if (ndpi_is_proto_unknown(risk_mask)) {
-    SCLogError("failure parsing nDPI protocol '%s'", l7_protocol_name);
-    return NULL;
-  }
+    if (ndpi_is_proto_unknown(risk_mask)) {
+        SCLogError("failure parsing nDPI protocol '%s'", l7_protocol_name);
+        return NULL;
+    }
 #else
-  risk_mask = atoll(arg);
+    risk_mask = atoll(arg);
 #endif
 
-  data = SCMalloc(sizeof(DetectnDPIRiskData));
-  if (unlikely(data == NULL))
-    return NULL;
+    data = SCMalloc(sizeof(DetectnDPIRiskData));
+    if (unlikely(data == NULL))
+        return NULL;
 
-  data->risk_mask = risk_mask;
-  data->negated = negate;
+    data->risk_mask = risk_mask;
+    data->negated = negate;
 
-  return data;
+    return data;
 }
 
 static bool HasConflicts(const DetectnDPIRiskData *us, const DetectnDPIRiskData *them)
 {
-  /* check for mix of negated and non negated */
-  if (them->negated ^ us->negated)
-    return true;
+    /* check for mix of negated and non negated */
+    if (them->negated ^ us->negated)
+        return true;
 
-  /* check for multiple non-negated */
-  if (!us->negated)
-    return true;
+    /* check for multiple non-negated */
+    if (!us->negated)
+        return true;
 
-  /* check for duplicate */
-  if (us->risk_mask == them->risk_mask)
-    return true;
+    /* check for duplicate */
+    if (us->risk_mask == them->risk_mask)
+        return true;
 
-  return false;
+    return false;
 }
 
 static int DetectnDPIRiskSetup(DetectEngineCtx *de_ctx, Signature *s, const char *arg)
 {
-  DetectnDPIRiskData *data = NULL;
+    DetectnDPIRiskData *data = NULL;
 
-  /*
-    if (s->risk_mask != NDPI_PROTOCOL_UNKNOWN) {
-    SCLogError("Either we already "
-    "have the rule match on a nDPI protocol set through "
-    "other keywords that match on this protocol, or have "
-    "already seen a non-negated ndpi-risk.");
-    goto error;
-    }
-  */
+    /*
+        if (s->risk_mask != NDPI_PROTOCOL_UNKNOWN) {
+        SCLogError("Either we already "
+        "have the rule match on a nDPI protocol set through "
+        "other keywords that match on this protocol, or have "
+        "already seen a non-negated ndpi-risk.");
+        goto error;
+        }
+    */
 
-  data = DetectnDPIRiskParse(arg, s->init_data->negated);
-  if (data == NULL)
-    goto error;
+    data = DetectnDPIRiskParse(arg, s->init_data->negated);
+    if (data == NULL)
+        goto error;
 
-  SigMatch *tsm = s->init_data->smlists[DETECT_SM_LIST_MATCH];
-  for ( ; tsm != NULL; tsm = tsm->next) {
-    if (tsm->type == DETECT_NDPI_RISK) {
-      const DetectnDPIRiskData *them = (const DetectnDPIRiskData *)tsm->ctx;
+    SigMatch *tsm = s->init_data->smlists[DETECT_SM_LIST_MATCH];
+    for ( ; tsm != NULL; tsm = tsm->next) {
+        if (tsm->type == DETECT_NDPI_RISK) {
+            const DetectnDPIRiskData *them = (const DetectnDPIRiskData *)tsm->ctx;
 
-      if (HasConflicts(data, them)) {
+            if (HasConflicts(data, them)) {
 	SCLogError("can't mix "
-		   "positive ndpi-risk match with negated");
+		     "positive ndpi-risk match with negated");
 	goto error;
-      }
+            }
+        }
     }
-  }
 
-  if (SigMatchAppendSMToList(de_ctx, s, DETECT_NDPI_RISK, (SigMatchCtx *)data,
-			     DETECT_SM_LIST_MATCH) == NULL) {
-    goto error;
-  }
-  return 0;
+    if (SigMatchAppendSMToList(de_ctx, s, DETECT_NDPI_RISK, (SigMatchCtx *)data,
+			         DETECT_SM_LIST_MATCH) == NULL) {
+        goto error;
+    }
+    return 0;
 
  error:
-  if (data != NULL)
-    SCFree(data);
-  return -1;
+    if (data != NULL)
+        SCFree(data);
+    return -1;
 }
 
 static void DetectnDPIRiskFree(DetectEngineCtx *de_ctx, void *ptr)
 {
-  SCFree(ptr);
+    SCFree(ptr);
 }
 
 /** \internal
- *  \brief prefilter function for protocol detect matching
+ *    \brief prefilter function for protocol detect matching
  */
 static void
 PrefilterPacketnDPIProtocolMatch(DetectEngineThreadCtx *det_ctx, Packet *p, const void *pectx)
 {
-  const PrefilterPacketHeaderCtx *ctx = pectx;
+    const PrefilterPacketHeaderCtx *ctx = pectx;
 
-  if (p->flow == NULL || !p->flow->detection_completed) {
-    SCLogDebug("packet %"PRIu64": no flow, no l7_protocol", p->pcap_cnt);
-    SCReturn;
-  }
+    if (p->flow == NULL || !p->flow->detection_completed) {
+        SCLogDebug("packet %"PRIu64": no flow, no l7_protocol", p->pcap_cnt);
+        SCReturn;
+    }
 
-  Flow *f = p->flow;
-  bool negated = (bool)ctx->v1.u8[9];
-  ndpi_risk risk_mask = ctx->v1.u64[0];  
-  bool ret = ((f->ndpi_flow->risk_mask & risk_mask) == risk_mask) ? true: false;
-  
-  if (ret ^ negated) {
-    PrefilterAddSids(&det_ctx->pmq, ctx->sigs_array, ctx->sigs_cnt);
-  } 
+    Flow *f = p->flow;
+    bool negated = (bool)ctx->v1.u8[9];
+    ndpi_risk risk_mask = ctx->v1.u64[0];
+    bool ret = ((f->ndpi_flow->risk_mask & risk_mask) == risk_mask) ? true: false;
+    
+    if (ret ^ negated) {
+        PrefilterAddSids(&det_ctx->pmq, ctx->sigs_array, ctx->sigs_cnt);
+    } 
 }
 
 static void
 PrefilterPacketnDPIProtocolSet(PrefilterPacketHeaderValue *v, void *smctx)
 {
-  const DetectnDPIRiskData *a = smctx;
+    const DetectnDPIRiskData *a = smctx;
 
-  v->u64[0] = a->risk_mask;
-  v->u8[9]  = (uint8_t)a->negated;
+    v->u64[0] = a->risk_mask;
+    v->u8[9]    = (uint8_t)a->negated;
 }
 
 static bool
 PrefilterPacketnDPIProtocolCompare(PrefilterPacketHeaderValue v, void *smctx)
 {
-  const DetectnDPIRiskData *a = smctx;
-  ndpi_risk                 p = v.u64[0];
-  bool                    negated = (bool)v.u8[9];
-  bool ret;
-  
-  ret = ((a->risk_mask & p) == p) ? true: false;
-  return (ret ^ negated);
+    const DetectnDPIRiskData *a = smctx;
+    ndpi_risk p = v.u64[0];
+    bool negated = (bool)v.u8[9];
+    bool ret;
+    
+    ret = ((a->risk_mask & p) == p) ? true: false;
+    return (ret ^ negated);
 }
 
 static int PrefilterSetupnDPIProtocol(DetectEngineCtx *de_ctx, SigGroupHead *sgh)
 {
-  return PrefilterSetupPacketHeader(de_ctx, sgh, DETECT_NDPI_RISK,
-				    SIG_MASK_REQUIRE_FLOW,
-				    PrefilterPacketnDPIProtocolSet,
-				    PrefilterPacketnDPIProtocolCompare,
-				    PrefilterPacketnDPIProtocolMatch);
+    return PrefilterSetupPacketHeader(de_ctx, sgh, DETECT_NDPI_RISK,
+				      SIG_MASK_REQUIRE_FLOW,
+				      PrefilterPacketnDPIProtocolSet,
+				      PrefilterPacketnDPIProtocolCompare,
+				      PrefilterPacketnDPIProtocolMatch);
 }
 
 static bool PrefilternDPIProtocolIsPrefilterable(const Signature *s)
 {
-  if (s->type == SIG_TYPE_PDONLY) {
-    SCLogDebug("prefilter on PD %u", s->id);
-    return true;
-  }
-  return false;
+    if (s->type == SIG_TYPE_PDONLY) {
+        SCLogDebug("prefilter on PD %u", s->id);
+        return true;
+    }
+    return false;
 }
 
 void DetectnDPIRiskRegister(void)
 {
-  sigmatch_table[DETECT_NDPI_RISK].name = "ndpi-risk";
-  sigmatch_table[DETECT_NDPI_RISK].desc = "match on the detected nDPI risk";
-  sigmatch_table[DETECT_NDPI_RISK].url = "/rules/index.html";
-  sigmatch_table[DETECT_NDPI_RISK].Match = DetectnDPIRiskPacketMatch;
-  sigmatch_table[DETECT_NDPI_RISK].Setup = DetectnDPIRiskSetup;
-  sigmatch_table[DETECT_NDPI_RISK].Free =  DetectnDPIRiskFree;
+    sigmatch_table[DETECT_NDPI_RISK].name = "ndpi-risk";
+    sigmatch_table[DETECT_NDPI_RISK].desc = "match on the detected nDPI risk";
+    sigmatch_table[DETECT_NDPI_RISK].url = "/rules/index.html";
+    sigmatch_table[DETECT_NDPI_RISK].Match = DetectnDPIRiskPacketMatch;
+    sigmatch_table[DETECT_NDPI_RISK].Setup = DetectnDPIRiskSetup;
+    sigmatch_table[DETECT_NDPI_RISK].Free =  DetectnDPIRiskFree;
 #ifdef UNITTESTS
-  sigmatch_table[DETECT_NDPI_RISK].RegisterTests =
-    DetectnDPIRiskRegisterTests;
+    sigmatch_table[DETECT_NDPI_RISK].RegisterTests =
+        DetectnDPIRiskRegisterTests;
 #endif
-  sigmatch_table[DETECT_NDPI_RISK].flags =
-    (SIGMATCH_QUOTES_OPTIONAL|SIGMATCH_HANDLE_NEGATION);
+    sigmatch_table[DETECT_NDPI_RISK].flags =
+        (SIGMATCH_QUOTES_OPTIONAL|SIGMATCH_HANDLE_NEGATION);
 
-  sigmatch_table[DETECT_NDPI_RISK].SetupPrefilter =
-    PrefilterSetupnDPIProtocol;
-  sigmatch_table[DETECT_NDPI_RISK].SupportsPrefilter =
-    PrefilternDPIProtocolIsPrefilterable;
+    sigmatch_table[DETECT_NDPI_RISK].SetupPrefilter =
+        PrefilterSetupnDPIProtocol;
+    sigmatch_table[DETECT_NDPI_RISK].SupportsPrefilter =
+        PrefilternDPIProtocolIsPrefilterable;
 }
 
 /**********************************Unittests***********************************/
@@ -270,80 +270,80 @@ void DetectnDPIRiskRegister(void)
 
 static int DetectnDPIRiskTest01(void)
 {
-  DetectnDPIRiskData *data = DetectnDPIRiskParse("HTTP", false);
-  FAIL_IF_NULL(data);
-  FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
-  FAIL_IF(data->negated != 0);
-  DetectnDPIRiskFree(NULL, data);
-  PASS;
+    DetectnDPIRiskData *data = DetectnDPIRiskParse("HTTP", false);
+    FAIL_IF_NULL(data);
+    FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
+    FAIL_IF(data->negated != 0);
+    DetectnDPIRiskFree(NULL, data);
+    PASS;
 }
 
 static int DetectnDPIRiskTest02(void)
 {
-  DetectnDPIRiskData *data = DetectnDPIRiskParse("HTTP", true);
-  FAIL_IF_NULL(data);
-  FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
-  FAIL_IF(data->negated == 0);
-  DetectnDPIRiskFree(NULL, data);
-  PASS;
+    DetectnDPIRiskData *data = DetectnDPIRiskParse("HTTP", true);
+    FAIL_IF_NULL(data);
+    FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
+    FAIL_IF(data->negated == 0);
+    DetectnDPIRiskFree(NULL, data);
+    PASS;
 }
 
 static int DetectnDPIRiskTest03(void)
 {
-  Signature *s = NULL;
-  DetectnDPIRiskData *data = NULL;
-  DetectEngineCtx *de_ctx = DetectEngineCtxInit();
-  FAIL_IF_NULL(de_ctx);
-  de_ctx->flags |= DE_QUIET;
+    Signature *s = NULL;
+    DetectnDPIRiskData *data = NULL;
+    DetectEngineCtx *de_ctx = DetectEngineCtxInit();
+    FAIL_IF_NULL(de_ctx);
+    de_ctx->flags |= DE_QUIET;
 
-  s = DetectEngineAppendSig(de_ctx, "alert tcp any any -> any any "
-			    "(ndpi-risk:HTTP; sid:1;)");
-  FAIL_IF_NULL(s);
+    s = DetectEngineAppendSig(de_ctx, "alert tcp any any -> any any "
+			      "(ndpi-risk:HTTP; sid:1;)");
+    FAIL_IF_NULL(s);
 
-  FAIL_IF(s->risk_mask != NDPI_PROTOCOL_UNKNOWN);
+    FAIL_IF(s->risk_mask != NDPI_PROTOCOL_UNKNOWN);
 
-  FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]);
-  FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx);
+    FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]);
+    FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx);
 
-  data = (DetectnDPIRiskData *)s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx;
-  FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
-  FAIL_IF(data->negated);
-  DetectEngineCtxFree(de_ctx);
-  PASS;
+    data = (DetectnDPIRiskData *)s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx;
+    FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
+    FAIL_IF(data->negated);
+    DetectEngineCtxFree(de_ctx);
+    PASS;
 }
 
 static int DetectnDPIRiskTest04(void)
 {
-  Signature *s = NULL;
-  DetectnDPIRiskData *data = NULL;
-  DetectEngineCtx *de_ctx = DetectEngineCtxInit();
-  FAIL_IF_NULL(de_ctx);
-  de_ctx->flags |= DE_QUIET;
+    Signature *s = NULL;
+    DetectnDPIRiskData *data = NULL;
+    DetectEngineCtx *de_ctx = DetectEngineCtxInit();
+    FAIL_IF_NULL(de_ctx);
+    de_ctx->flags |= DE_QUIET;
 
-  s = DetectEngineAppendSig(de_ctx, "alert tcp any any -> any any "
-			    "(ndpi-risk:!NDPI_PROBING_ATTEMPT; sid:1;)");
-  FAIL_IF_NULL(s);
-  FAIL_IF(s->risk_mask != NDPI_PROBING_ATTEMPT);
-  FAIL_IF(s->flags & SIG_FLAG_APPLAYER);
+    s = DetectEngineAppendSig(de_ctx, "alert tcp any any -> any any "
+			      "(ndpi-risk:!NDPI_PROBING_ATTEMPT; sid:1;)");
+    FAIL_IF_NULL(s);
+    FAIL_IF(s->risk_mask != NDPI_PROBING_ATTEMPT);
+    FAIL_IF(s->flags & SIG_FLAG_APPLAYER);
 
-  FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]);
-  FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx);
+    FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]);
+    FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx);
 
-  data = (DetectnDPIRiskData *)s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx;
-  FAIL_IF_NULL(data);
-  FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
-  FAIL_IF(data->negated == 0);
+    data = (DetectnDPIRiskData *)s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx;
+    FAIL_IF_NULL(data);
+    FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
+    FAIL_IF(data->negated == 0);
 
-  DetectEngineCtxFree(de_ctx);
-  PASS;
+    DetectEngineCtxFree(de_ctx);
+    PASS;
 }
 
 static void DetectnDPIRiskRegisterTests(void)
 {
-  UtRegisterTest("DetectnDPIRiskTest01", DetectnDPIRiskTest01);
-  UtRegisterTest("DetectnDPIRiskTest02", DetectnDPIRiskTest02);
-  UtRegisterTest("DetectnDPIRiskTest03", DetectnDPIRiskTest03);
-  UtRegisterTest("DetectnDPIRiskTest04", DetectnDPIRiskTest04);
+    UtRegisterTest("DetectnDPIRiskTest01", DetectnDPIRiskTest01);
+    UtRegisterTest("DetectnDPIRiskTest02", DetectnDPIRiskTest02);
+    UtRegisterTest("DetectnDPIRiskTest03", DetectnDPIRiskTest03);
+    UtRegisterTest("DetectnDPIRiskTest04", DetectnDPIRiskTest04);
 }
 
 #endif /* UNITTESTS */

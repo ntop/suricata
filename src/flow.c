@@ -390,21 +390,18 @@ void FlowHandlePacketUpdate(Flow *f, Packet *p, ThreadVars *tv, DecodeThreadVars
 #ifdef HAVE_NDPI
     if (tv->ndpi_struct &&
         f->ndpi_flow &&
-        !f->detection_completed &&
-        p->ip_len > 0) {
+        (!f->detection_completed) &&
+        (p->ip_len > 0)) {
         uint64_t time_ms = ((uint64_t) p->ts.secs) * 1000 /* TICK_RESOLUTION */ + p->ts.usecs / (1000000 / 1000 /* TICK_RESOLUTION */);
 
         f->detected_l7_protocol = ndpi_detection_process_packet(tv->ndpi_struct, f->ndpi_flow,
-                                    PacketIsIPv4(p) ? (void*)PacketGetIPv4(p) : (void*)PacketGetIPv6(p),
-                                    p->ip_len, time_ms, NULL);
-
-        //SCLogDebug("%s - ndpi_detection_process_packet() [len: %d] [%u:%u]", __FUNCTION__, p->ip_len,
-        //   f->detected_l7_protocol.master_protocol, f->detected_l7_protocol.app_protocol);
+								PacketIsIPv4(p) ? (void*)PacketGetIPv4(p) : (void*)PacketGetIPv6(p),
+								p->ip_len, time_ms, NULL);
 
         if (ndpi_is_protocol_detected(f->detected_l7_protocol) != 0) {
-
 	  if(!ndpi_is_proto_unknown(f->detected_l7_protocol.proto)) {
-	    f->detection_completed = 1;
+	    if(!ndpi_extra_dissection_possible(tv->ndpi_struct, f->ndpi_flow))
+	      f->detection_completed = 1;
 	  }
         } else {
             u_int16_t max_num_pkts = (f->proto == IPPROTO_UDP) ? 8 : 24;

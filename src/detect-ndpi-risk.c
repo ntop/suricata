@@ -82,7 +82,7 @@ static DetectnDPIRiskData *DetectnDPIRiskParse(const char *arg, bool negate)
     struct ndpi_detection_module_struct *ndpi_struct;
     ndpi_risk risk_mask;
     NDPI_PROTOCOL_BITMASK all;
-
+    
     /* convert protocol name (string) to ID */
     ndpi_struct = ndpi_init_detection_module(NULL);
     if (unlikely(ndpi_struct == NULL))
@@ -93,18 +93,24 @@ static DetectnDPIRiskData *DetectnDPIRiskParse(const char *arg, bool negate)
     ndpi_set_protocol_detection_bitmask2(ndpi_struct, &all);
     ndpi_finalize_initialization(ndpi_struct);
 
-#if 0
-    /* TODO: implement protocol parsing */
-    risk_mask = ndpi_get_protocol_by_name(ndpi_struct, l7_protocol_name);
-    ndpi_exit_detection_module(ndpi_struct);
+    if(isdigit(arg[0]))
+      risk_mask = atoll(arg);
+    else {
+      char *dup = SCStrdup(arg), *tmp, *token;
 
-    if (ndpi_is_proto_unknown(risk_mask)) {
-        SCLogError("failure parsing nDPI protocol '%s'", l7_protocol_name);
-        return NULL;
+      risk_mask = 0;
+
+      if(dup != NULL) {
+	token = strtok_r(dup, ",", &tmp);
+	
+	while(token != NULL) {
+	  risk_mask |= ndpi_code2risk(token);
+	  token = strtok_r(NULL, ",", &tmp);
+	}
+	
+	SCFree(dup);
+      }
     }
-#else
-    risk_mask = atoll(arg);
-#endif
 
     data = SCMalloc(sizeof(DetectnDPIRiskData));
     if (unlikely(data == NULL))

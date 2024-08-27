@@ -40,7 +40,7 @@ static void DetectnDPIProtocolRegisterTests(void);
 #endif
 
 typedef struct DetectnDPIProtocolData_ {
-  ndpi_master_app_protocol l7_protocol_id;
+  ndpi_master_app_protocol l7_protocol;
   uint8_t negated;
 } DetectnDPIProtocolData;
 
@@ -74,14 +74,14 @@ static int DetectnDPIProtocolPacketMatch(
         SCReturnInt(0);
     }
 
-    r = ndpi_is_proto_equals(f->detected_l7_protocol.proto, data->l7_protocol_id, false);
+    r = ndpi_is_proto_equals(f->detected_l7_protocol.proto, data->l7_protocol, false);
     r = r ^ data->negated;
     
     if (r) {
         SCLogDebug("ndpi protocol match on protocol = %u.%u (match %u)",
             f->detected_l7_protocol.app_protocol,
             f->detected_l7_protocol.master_protocol,
-            data->l7_protocol_id);
+            data->l7_protocol);
         SCReturnInt(1);
     }
     SCReturnInt(0);
@@ -91,7 +91,7 @@ static DetectnDPIProtocolData *DetectnDPIProtocolParse(const char *arg, bool neg
 {
     DetectnDPIProtocolData *data;
     struct ndpi_detection_module_struct *ndpi_struct;
-    ndpi_master_app_protocol l7_protocol_id;
+    ndpi_master_app_protocol l7_protocol;
     char *l7_protocol_name = (char *)arg;
     NDPI_PROTOCOL_BITMASK all;
 
@@ -105,10 +105,10 @@ static DetectnDPIProtocolData *DetectnDPIProtocolParse(const char *arg, bool neg
     ndpi_set_protocol_detection_bitmask2(ndpi_struct, &all);
     ndpi_finalize_initialization(ndpi_struct);
 
-    l7_protocol_id = ndpi_get_protocol_by_name(ndpi_struct, l7_protocol_name);
+    l7_protocol = ndpi_get_protocol_by_name(ndpi_struct, l7_protocol_name);
     ndpi_exit_detection_module(ndpi_struct);
 
-    if (ndpi_is_proto_unknown(l7_protocol_id)) {
+    if (ndpi_is_proto_unknown(l7_protocol)) {
       SCLogError("failure parsing nDPI protocol '%s'", l7_protocol_name);
       return NULL;
     }
@@ -117,7 +117,7 @@ static DetectnDPIProtocolData *DetectnDPIProtocolParse(const char *arg, bool neg
     if (unlikely(data == NULL))
         return NULL;
 
-    memcpy(&data->l7_protocol_id, &l7_protocol_id, sizeof(ndpi_master_app_protocol));
+    memcpy(&data->l7_protocol, &l7_protocol, sizeof(ndpi_master_app_protocol));
     data->negated = negate;
 
     return data;
@@ -134,7 +134,7 @@ static bool HasConflicts(const DetectnDPIProtocolData *us, const DetectnDPIProto
         return true;
 
     /* check for duplicate */
-    if (ndpi_is_proto_equals(us->l7_protocol_id, them->l7_protocol_id, true))
+    if (ndpi_is_proto_equals(us->l7_protocol, them->l7_protocol, true))
         return true;
 
     return false;
@@ -145,7 +145,7 @@ static int DetectnDPIProtocolSetup(DetectEngineCtx *de_ctx, Signature *s, const 
     DetectnDPIProtocolData *data = NULL;
 
     /*
-    if (s->l7_protocol_id != NDPI_PROTOCOL_UNKNOWN) {
+    if (s->l7_protocol != NDPI_PROTOCOL_UNKNOWN) {
         SCLogError("Either we already "
                    "have the rule match on a nDPI protocol set through "
                    "other keywords that match on this protocol, or have "
@@ -218,8 +218,8 @@ PrefilterPacketnDPIProtocolSet(PrefilterPacketHeaderValue *v, void *smctx)
 {
     const DetectnDPIProtocolData *a = smctx;
 
-    v->u16[0] = a->l7_protocol_id.master_protocol;
-    v->u16[1] = a->l7_protocol_id.app_protocol;
+    v->u16[0] = a->l7_protocol.master_protocol;
+    v->u16[1] = a->l7_protocol.app_protocol;
     v->u8[4]  = (uint8_t)a->negated;
 }
 
@@ -230,7 +230,7 @@ PrefilterPacketnDPIProtocolCompare(PrefilterPacketHeaderValue v, void *smctx)
     ndpi_master_app_protocol      p = { v.u16[0], v.u16[1] };
     bool                    negated = (bool)v.u8[4];
 				       
-    return (ndpi_is_proto_equals(a->l7_protocol_id, p, false) ^ negated);
+    return (ndpi_is_proto_equals(a->l7_protocol, p, false) ^ negated);
 }
 
 static int PrefilterSetupnDPIProtocol(DetectEngineCtx *de_ctx, SigGroupHead *sgh)
@@ -281,7 +281,7 @@ static int DetectnDPIProtocolTest01(void)
 {
     DetectnDPIProtocolData *data = DetectnDPIProtocolParse("HTTP", false);
     FAIL_IF_NULL(data);
-    FAIL_IF(data->l7_protocol_id != NDPI_PROTOCOL_HTTP);
+    FAIL_IF(data->l7_protocol.master_protocol != NDPI_PROTOCOL_HTTP);
     FAIL_IF(data->negated != 0);
     DetectnDPIProtocolFree(NULL, data);
     PASS;
@@ -291,7 +291,7 @@ static int DetectnDPIProtocolTest02(void)
 {
     DetectnDPIProtocolData *data = DetectnDPIProtocolParse("HTTP", true);
     FAIL_IF_NULL(data);
-    FAIL_IF(data->l7_protocol_id != NDPI_PROTOCOL_HTTP);
+    FAIL_IF(data->l7_protocol.master_protocol != NDPI_PROTOCOL_HTTP);
     FAIL_IF(data->negated == 0);
     DetectnDPIProtocolFree(NULL, data);
     PASS;
@@ -309,13 +309,13 @@ static int DetectnDPIProtocolTest03(void)
             "(ndpi-protocol:HTTP; sid:1;)");
     FAIL_IF_NULL(s);
 
-    FAIL_IF(s->l7_protocol_id != NDPI_PROTOCOL_UNKNOWN);
+    FAIL_IF(s->l7_protocol.master_protocol!= NDPI_PROTOCOL_UNKNOWN);
 
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]);
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx);
 
     data = (DetectnDPIProtocolData *)s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx;
-    FAIL_IF(data->l7_protocol_id != NDPI_PROTOCOL_HTTP);
+    FAIL_IF(data->l7_protocol.master_protocol != NDPI_PROTOCOL_HTTP);
     FAIL_IF(data->negated);
     DetectEngineCtxFree(de_ctx);
     PASS;
@@ -332,7 +332,7 @@ static int DetectnDPIProtocolTest04(void)
     s = DetectEngineAppendSig(de_ctx, "alert tcp any any -> any any "
             "(ndpi-protocol:!HTTP; sid:1;)");
     FAIL_IF_NULL(s);
-    FAIL_IF(s->l7_protocol_id != NDPI_PROTOCOL_UNKNOWN);
+    FAIL_IF(s->l7_protocol.master_protocol!= NDPI_PROTOCOL_UNKNOWN);
     FAIL_IF(s->flags & SIG_FLAG_APPLAYER);
 
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]);
@@ -340,7 +340,7 @@ static int DetectnDPIProtocolTest04(void)
 
     data = (DetectnDPIProtocolData *)s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx;
     FAIL_IF_NULL(data);
-    FAIL_IF(data->l7_protocol_id != NDPI_PROTOCOL_HTTP);
+    FAIL_IF(data->l7_protocol.master_protocol != NDPI_PROTOCOL_HTTP);
     FAIL_IF(data->negated == 0);
 
     DetectEngineCtxFree(de_ctx);

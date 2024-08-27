@@ -270,7 +270,7 @@ void DetectnDPIRiskRegister(void)
 
 static int DetectnDPIRiskTest01(void)
 {
-    DetectnDPIRiskData *data = DetectnDPIRiskParse("HTTP", false);
+    DetectnDPIRiskData *data = DetectnDPIRiskParse("NDPI_PROBING_ATTEMPT", false);
     FAIL_IF_NULL(data);
     FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
     FAIL_IF(data->negated != 0);
@@ -280,7 +280,7 @@ static int DetectnDPIRiskTest01(void)
 
 static int DetectnDPIRiskTest02(void)
 {
-    DetectnDPIRiskData *data = DetectnDPIRiskParse("HTTP", true);
+    DetectnDPIRiskData *data = DetectnDPIRiskParse("NDPI_PROBING_ATTEMPT", true);
     FAIL_IF_NULL(data);
     FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
     FAIL_IF(data->negated == 0);
@@ -297,7 +297,7 @@ static int DetectnDPIRiskTest03(void)
     de_ctx->flags |= DE_QUIET;
 
     s = DetectEngineAppendSig(de_ctx, "alert tcp any any -> any any "
-			      "(ndpi-risk:HTTP; sid:1;)");
+			      "(ndpi-risk:NDPI_PROBING_ATTEMPT; sid:1;)");
     FAIL_IF_NULL(s);
 
     FAIL_IF(s->risk_mask != NDPI_PROTOCOL_UNKNOWN);

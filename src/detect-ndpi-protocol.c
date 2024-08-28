@@ -6,7 +6,7 @@
  *
  * This program is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
@@ -43,7 +43,6 @@ typedef struct DetectnDPIProtocolData_ {
   ndpi_master_app_protocol l7_protocol;
   uint8_t negated;
 } DetectnDPIProtocolData;
-
 
 static int DetectnDPIProtocolPacketMatch(
         DetectEngineThreadCtx *det_ctx,
@@ -144,16 +143,6 @@ static int DetectnDPIProtocolSetup(DetectEngineCtx *de_ctx, Signature *s, const 
 {
     DetectnDPIProtocolData *data = NULL;
 
-    /*
-    if (s->l7_protocol != NDPI_PROTOCOL_UNKNOWN) {
-        SCLogError("Either we already "
-                   "have the rule match on a nDPI protocol set through "
-                   "other keywords that match on this protocol, or have "
-                   "already seen a non-negated ndpi-protocol.");
-        goto error;
-    }
-    */
-
     data = DetectnDPIProtocolParse(arg, s->init_data->negated);
     if (data == NULL)
         goto error;
@@ -197,7 +186,7 @@ PrefilterPacketnDPIProtocolMatch(DetectEngineThreadCtx *det_ctx, Packet *p, cons
     const PrefilterPacketHeaderCtx *ctx = pectx;
 
     if (p->flow == NULL || !p->flow->detection_completed) {
-        SCLogDebug("packet %"PRIu64": no flow, no l7_protocol", p->pcap_cnt);
+        SCLogDebug("packet %"PRIu64": no flow, no ndpi detection", p->pcap_cnt);
         SCReturn;
     }
 
@@ -220,7 +209,7 @@ PrefilterPacketnDPIProtocolSet(PrefilterPacketHeaderValue *v, void *smctx)
 
     v->u16[0] = a->l7_protocol.master_protocol;
     v->u16[1] = a->l7_protocol.app_protocol;
-    v->u8[4]  = (uint8_t)a->negated;
+    v->u8[4] = (uint8_t)a->negated;
 }
 
 static bool
@@ -229,7 +218,7 @@ PrefilterPacketnDPIProtocolCompare(PrefilterPacketHeaderValue v, void *smctx)
     const DetectnDPIProtocolData *a = smctx;
     ndpi_master_app_protocol      p = { v.u16[0], v.u16[1] };
     bool                    negated = (bool)v.u8[4];
-				       
+ 
     return (ndpi_is_proto_equals(a->l7_protocol, p, false) ^ negated);
 }
 

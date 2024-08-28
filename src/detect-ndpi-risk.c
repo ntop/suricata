@@ -63,7 +63,7 @@ static int DetectnDPIRiskPacketMatch(DetectEngineThreadCtx *det_ctx,
         SCReturnInt(0);
     }
 
-    r = f->ndpi_flow->risk_mask & data->risk_mask;
+    r = ((f->ndpi_flow->risk_mask & data->risk_mask) == data->risk_mask);
     r = r ^ data->negated;
 
     if (r) {
@@ -93,22 +93,29 @@ static DetectnDPIRiskData *DetectnDPIRiskParse(const char *arg, bool negate)
     ndpi_finalize_initialization(ndpi_struct);
 
     if (isdigit(arg[0]))
-      risk_mask = atoll(arg);
+        risk_mask = atoll(arg);
     else {
-      char *dup = SCStrdup(arg), *tmp, *token;
+        char *dup = SCStrdup(arg), *tmp, *token;
 
-      risk_mask = 0;
+        risk_mask = 0;
 
-      if (dup != NULL) {
-        token = strtok_r(dup, ",", &tmp);
+        if (dup != NULL) {
+            token = strtok_r(dup, ",", &tmp);
         
-        while (token != NULL) {
-          risk_mask |= ndpi_code2risk(token);
-          token = strtok_r(NULL, ",", &tmp);
+            while (token != NULL) {
+                ndpi_risk_enum risk_id = ndpi_code2risk(token);
+                if (risk_id >= NDPI_MAX_RISK) {
+                    SCLogError("unrecognized risk '%s', "
+                               "please check ndpiReader -H for valid risk codes",
+                               token);
+                    return NULL;
+                }
+                risk_mask |= risk_id;
+                token = strtok_r(NULL, ",", &tmp);
+            }
+        
+            SCFree(dup);
         }
-        
-        SCFree(dup);
-      }
     }
 
     data = SCMalloc(sizeof(DetectnDPIRiskData));

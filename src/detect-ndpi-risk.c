@@ -40,7 +40,7 @@ static void DetectnDPIRiskRegisterTests(void);
 #endif
 
 typedef struct DetectnDPIRiskData_ {
-    ndpi_risk risk_mask;
+    ndpi_risk risk_mask; /* uint64 */
     uint8_t negated;
 } DetectnDPIRiskData;
 
@@ -63,13 +63,13 @@ static int DetectnDPIRiskPacketMatch(DetectEngineThreadCtx *det_ctx,
         SCReturnInt(0);
     }
 
-    r = ((f->ndpi_flow->risk_mask & data->risk_mask) == data->risk_mask);
+    r = ((f->ndpi_flow->risk & data->risk_mask) == data->risk_mask);
     r = r ^ data->negated;
 
     if (r) {
-        SCLogDebug("ndpi risks match on risk = %llu (match %llu)",
-                   (unsigned long long)f->ndpi_flow->risk_mask,
-                   (unsigned long long)data->risk_mask);
+        SCLogDebug("ndpi risks match on risk bitmap =  %"PRIu64" (matching bitmap %"PRIu64")",
+                   f->ndpi_flow->risk,
+                   data->risk_mask);
         SCReturnInt(1);
     }
 
@@ -98,7 +98,7 @@ static DetectnDPIRiskData *DetectnDPIRiskParse(const char *arg, bool negate)
     else {
         char *dup = SCStrdup(arg), *tmp, *token;
 
-        risk_mask = 0;
+        NDPI_ZERO_BIT(risk_mask);
 
         if (dup != NULL) {
             token = strtok_r(dup, ",", &tmp);
@@ -111,7 +111,7 @@ static DetectnDPIRiskData *DetectnDPIRiskParse(const char *arg, bool negate)
                                token);
                     return NULL;
                 }
-                risk_mask |= (1 << risk_id);
+                NDPI_SET_BIT(risk_mask, risk_id);
                 token = strtok_r(NULL, ",", &tmp);
             }
         
@@ -192,7 +192,7 @@ PrefilterPacketnDPIRiskMatch(DetectEngineThreadCtx *det_ctx, Packet *p, const vo
     Flow *f = p->flow;
     bool negated = (bool)ctx->v1.u8[9];
     ndpi_risk risk_mask = ctx->v1.u64[0];
-    bool ret = ((f->ndpi_flow->risk_mask & risk_mask) == risk_mask) ? true: false;
+    bool ret = ((f->ndpi_flow->risk & risk_mask) == risk_mask) ? true: false;
     
     if (ret ^ negated) {
         PrefilterAddSids(&det_ctx->pmq, ctx->sigs_array, ctx->sigs_cnt);
@@ -267,7 +267,7 @@ static int DetectnDPIRiskTest01(void)
 {
     DetectnDPIRiskData *data = DetectnDPIRiskParse("NDPI_PROBING_ATTEMPT", false);
     FAIL_IF_NULL(data);
-    FAIL_IF(!(data->risk_mask & (1 << NDPI_PROBING_ATTEMPT)));
+    FAIL_IF(!(NDPI_ISSET_BIT(data->risk_mask, NDPI_PROBING_ATTEMPT));
     FAIL_IF(data->negated != 0);
     DetectnDPIRiskFree(NULL, data);
     PASS;
@@ -277,7 +277,7 @@ static int DetectnDPIRiskTest02(void)
 {
     DetectnDPIRiskData *data = DetectnDPIRiskParse("NDPI_PROBING_ATTEMPT", true);
     FAIL_IF_NULL(data);
-    FAIL_IF(!(data->risk_mask & (1 << NDPI_PROBING_ATTEMPT)));
+    FAIL_IF(!(NDPI_ISSET_BIT(data->risk_mask, NDPI_PROBING_ATTEMPT));
     FAIL_IF(data->negated == 0);
     DetectnDPIRiskFree(NULL, data);
     PASS;
@@ -299,7 +299,7 @@ static int DetectnDPIRiskTest03(void)
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx);
 
     data = (DetectnDPIRiskData *)s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx;
-    FAIL_IF(!(data->risk_mask & (1 << NDPI_PROBING_ATTEMPT)));
+    FAIL_IF(!(NDPI_ISSET_BIT(data->risk_mask, NDPI_PROBING_ATTEMPT));
     FAIL_IF(data->negated);
     DetectEngineCtxFree(de_ctx);
     PASS;
@@ -323,7 +323,7 @@ static int DetectnDPIRiskTest04(void)
     data = (DetectnDPIRiskData *)s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx;
     FAIL_IF_NULL(data);
 
-    FAIL_IF(!(data->risk_mask & (1 << NDPI_PROBING_ATTEMPT)));
+    FAIL_IF(!(NDPI_ISSET_BIT(data->risk_mask, NDPI_PROBING_ATTEMPT));
     FAIL_IF(data->negated == 0);
 
     DetectEngineCtxFree(de_ctx);

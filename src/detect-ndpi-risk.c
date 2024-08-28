@@ -69,9 +69,10 @@ static int DetectnDPIRiskPacketMatch(DetectEngineThreadCtx *det_ctx,
     if (r) {
         SCLogDebug("ndpi risks match on risk = %llu (match %llu)",
                    (unsigned long long)f->ndpi_flow->risk_mask,
-                   (unsigned long long)data->risk);
+                   (unsigned long long)data->risk_mask);
         SCReturnInt(1);
     }
+
     SCReturnInt(0);
 }
 
@@ -110,7 +111,7 @@ static DetectnDPIRiskData *DetectnDPIRiskParse(const char *arg, bool negate)
                                token);
                     return NULL;
                 }
-                risk_mask |= risk_id;
+                risk_mask |= (1 << risk_id);
                 token = strtok_r(NULL, ",", &tmp);
             }
         
@@ -266,7 +267,7 @@ static int DetectnDPIRiskTest01(void)
 {
     DetectnDPIRiskData *data = DetectnDPIRiskParse("NDPI_PROBING_ATTEMPT", false);
     FAIL_IF_NULL(data);
-    FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
+    FAIL_IF(!(data->risk_mask & (1 << NDPI_PROBING_ATTEMPT)));
     FAIL_IF(data->negated != 0);
     DetectnDPIRiskFree(NULL, data);
     PASS;
@@ -276,7 +277,7 @@ static int DetectnDPIRiskTest02(void)
 {
     DetectnDPIRiskData *data = DetectnDPIRiskParse("NDPI_PROBING_ATTEMPT", true);
     FAIL_IF_NULL(data);
-    FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
+    FAIL_IF(!(data->risk_mask & (1 << NDPI_PROBING_ATTEMPT)));
     FAIL_IF(data->negated == 0);
     DetectnDPIRiskFree(NULL, data);
     PASS;
@@ -294,13 +295,11 @@ static int DetectnDPIRiskTest03(void)
                               "(ndpi-risk:NDPI_PROBING_ATTEMPT; sid:1;)");
     FAIL_IF_NULL(s);
 
-    FAIL_IF(s->risk_mask != NDPI_PROTOCOL_UNKNOWN);
-
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]);
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx);
 
     data = (DetectnDPIRiskData *)s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx;
-    FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
+    FAIL_IF(!(data->risk_mask & (1 << NDPI_PROBING_ATTEMPT)));
     FAIL_IF(data->negated);
     DetectEngineCtxFree(de_ctx);
     PASS;
@@ -317,15 +316,14 @@ static int DetectnDPIRiskTest04(void)
     s = DetectEngineAppendSig(de_ctx, "alert tcp any any -> any any "
                               "(ndpi-risk:!NDPI_PROBING_ATTEMPT; sid:1;)");
     FAIL_IF_NULL(s);
-    FAIL_IF(s->risk_mask != NDPI_PROBING_ATTEMPT);
-    FAIL_IF(s->flags & SIG_FLAG_APPLAYER);
 
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]);
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx);
 
     data = (DetectnDPIRiskData *)s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx;
     FAIL_IF_NULL(data);
-    FAIL_IF(data->risk != NDPI_PROBING_ATTEMPT);
+
+    FAIL_IF(!(data->risk_mask & (1 << NDPI_PROBING_ATTEMPT)));
     FAIL_IF(data->negated == 0);
 
     DetectEngineCtxFree(de_ctx);

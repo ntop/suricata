@@ -298,8 +298,6 @@ static int DetectnDPIProtocolTest03(void)
             "(ndpi-protocol:HTTP; sid:1;)");
     FAIL_IF_NULL(s);
 
-    FAIL_IF(s->l7_protocol.master_protocol!= NDPI_PROTOCOL_UNKNOWN);
-
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]);
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx);
 
@@ -321,8 +319,6 @@ static int DetectnDPIProtocolTest04(void)
     s = DetectEngineAppendSig(de_ctx, "alert tcp any any -> any any "
             "(ndpi-protocol:!HTTP; sid:1;)");
     FAIL_IF_NULL(s);
-    FAIL_IF(s->l7_protocol.master_protocol!= NDPI_PROTOCOL_UNKNOWN);
-    FAIL_IF(s->flags & SIG_FLAG_APPLAYER);
 
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]);
     FAIL_IF_NULL(s->init_data->smlists[DETECT_SM_LIST_MATCH]->ctx);

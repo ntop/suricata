@@ -206,7 +206,7 @@ static int DetectnDPIProtocolPacketMatch(
 
     if (r) {
         SCLogDebug("ndpi protocol match on protocol = %u.%u (match %u)",
-                flowctx->detected_l7_protocol.app_protocol, flowctx->detected_l7_protocol.master_protocol,
+                flowctx->detected_l7_protocol.proto.app_protocol, flowctx->detected_l7_protocol.proto.master_protocol,
                 data->l7_protocol);
         SCReturnInt(1);
     }

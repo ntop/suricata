@@ -138,7 +138,7 @@ static void OnFlowUpdate(ThreadVars *tv, Flow *f, Packet *p, void *_data)
         }
 
         if (flowctx->detection_completed) {
-            SCLogNotice("Detected protocol: %s | app protocol: %s | category: %s",
+            SCLogDebug("Detected protocol: %s | app protocol: %s | category: %s",
                     ndpi_get_proto_name(threadctx->ndpi, flowctx->detected_l7_protocol.proto.master_protocol),
                     ndpi_get_proto_name(threadctx->ndpi, flowctx->detected_l7_protocol.proto.app_protocol),
                     ndpi_category_get_name(threadctx->ndpi, flowctx->detected_l7_protocol.category));
@@ -436,85 +436,6 @@ error:
 static void DetectnDPIRiskFree(DetectEngineCtx *de_ctx, void *ptr)
 {
     SCFree(ptr);
-}
-
-static void BuildnDPITLSQUICJson(ThreadVars *tv, Flow *f, JsonBuilder *jb, struct NdpiFlowContext *flowctx)
-{
-    char buf[64];
-    char notBefore[32], notAfter[32];
-    struct tm a, b, *before = NULL, *after = NULL;
-    u_int i, off;
-    u_int8_t unknown_tls_version;
-    char version[16], unknown_cipher[8];
-
-    if (!flowctx->ndpi_flow->protos.tls_quic.ssl_version) {
-        return;
-    }
-
-    ndpi_ssl_version2str(version, sizeof(version), flowctx->ndpi_flow->protos.tls_quic.ssl_version,
-            &unknown_tls_version);
-
-    if (flowctx->ndpi_flow->protos.tls_quic.notBefore)
-        before = ndpi_gmtime_r((const time_t *)&flowctx->ndpi_flow->protos.tls_quic.notBefore, &a);
-
-    if (flowctx->ndpi_flow->protos.tls_quic.notAfter)
-        after = ndpi_gmtime_r((const time_t *)&flowctx->ndpi_flow->protos.tls_quic.notAfter, &b);
-
-    if (!unknown_tls_version) {
-        jb_open_object(jb, "tls");
-        jb_set_string(jb, "version", version);
-
-        if (flowctx->ndpi_flow->protos.tls_quic.server_names)
-            jb_set_string(jb, "server_names", flowctx->ndpi_flow->protos.tls_quic.server_names);
-
-        if (before) {
-            strftime(notBefore, sizeof(notBefore), "%Y-%m-%d %H:%M:%S", before);
-            jb_set_string(jb, "notbefore", notBefore);
-        }
-
-        if (after) {
-            strftime(notAfter, sizeof(notAfter), "%Y-%m-%d %H:%M:%S", after);
-            jb_set_string(jb, "notafter", notAfter);
-        }
-
-        /* Note: ja3, ja3s, ja4 are not serialized as as Suricata already supports them */
-
-        jb_set_uint(jb, "unsafe_cipher", flowctx->ndpi_flow->protos.tls_quic.server_unsafe_cipher);
-        jb_set_string(jb, "cipher",
-                ndpi_cipher2str(flowctx->ndpi_flow->protos.tls_quic.server_cipher, unknown_cipher));
-
-        if (flowctx->ndpi_flow->protos.tls_quic.issuerDN)
-            jb_set_string(jb, "issuerDN", flowctx->ndpi_flow->protos.tls_quic.issuerDN);
-
-        if (flowctx->ndpi_flow->protos.tls_quic.subjectDN)
-            jb_set_string(jb, "subjectDN", flowctx->ndpi_flow->protos.tls_quic.subjectDN);
-
-        if (flowctx->ndpi_flow->protos.tls_quic.advertised_alpns)
-            jb_set_string(jb, "advertised_alpns", flowctx->ndpi_flow->protos.tls_quic.advertised_alpns);
-
-        if (flowctx->ndpi_flow->protos.tls_quic.negotiated_alpn)
-            jb_set_string(jb, "negotiated_alpn", flowctx->ndpi_flow->protos.tls_quic.negotiated_alpn);
-
-        if (flowctx->ndpi_flow->protos.tls_quic.tls_supported_versions)
-            jb_set_string(jb, "tls_supported_versions",
-                    flowctx->ndpi_flow->protos.tls_quic.tls_supported_versions);
-
-        if (flowctx->ndpi_flow->protos.tls_quic.sha1_certificate_fingerprint[0] != '\0') {
-            for (i = 0, off = 0; i < 20; i++) {
-                int rc = ndpi_snprintf(&buf[off], sizeof(buf) - off, "%s%02X", (i > 0) ? ":" : "",
-                        flowctx->ndpi_flow->protos.tls_quic.sha1_certificate_fingerprint[i] & 0xFF);
-                if (rc <= 0)
-                    break;
-                else
-                    off += rc;
-            }
-            jb_set_string(jb, "fingerprint", buf);
-        }
-
-        jb_set_uint(jb, "blocks", flowctx->ndpi_flow->l4.tcp.tls.num_tls_blocks);
-
-        jb_close(jb);
-    }
 }
 
 static void EveCallback(ThreadVars *tv, const Packet *p, Flow *f, JsonBuilder *jb, void *data)

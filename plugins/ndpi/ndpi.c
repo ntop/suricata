@@ -178,7 +178,6 @@ static int DetectnDPIProtocolPacketMatch(
     struct NdpiThreadContext *threadctx = ThreadGetStorageById(tv, thread_storage_id);
     struct NdpiFlowContext *flowctx = FlowGetStorageById(f, flow_storage_id);
     const DetectnDPIProtocolData *data = (const DetectnDPIProtocolData *)ctx;
-    bool r;
 
     SCEnter();
 
@@ -201,7 +200,7 @@ static int DetectnDPIProtocolPacketMatch(
         SCReturnInt(0);
     }
 
-    r = ndpi_is_proto_equals(flowctx->detected_l7_protocol.proto, data->l7_protocol, false);
+    bool r = ndpi_is_proto_equals(flowctx->detected_l7_protocol.proto, data->l7_protocol, false);
     r = r ^ data->negated;
 
     if (r) {
@@ -268,9 +267,7 @@ static bool nDPIProtocolDataHasConflicts(const DetectnDPIProtocolData *us, const
 
 static int DetectnDPIProtocolSetup(DetectEngineCtx *de_ctx, Signature *s, const char *arg)
 {
-    DetectnDPIProtocolData *data = NULL;
-
-    data = DetectnDPIProtocolParse(arg, s->init_data->negated);
+    DetectnDPIProtocolData *data = DetectnDPIProtocolParse(arg, s->init_data->negated);
     if (data == NULL)
         goto error;
 
@@ -312,7 +309,6 @@ static int DetectnDPIRiskPacketMatch(
     struct NdpiThreadContext *threadctx = ThreadGetStorageById(tv, thread_storage_id);
     struct NdpiFlowContext *flowctx = FlowGetStorageById(f, flow_storage_id);
     const DetectnDPIRiskData *data = (const DetectnDPIRiskData *)ctx;
-    bool r;
 
     SCEnter();
 
@@ -326,7 +322,7 @@ static int DetectnDPIRiskPacketMatch(
         SCReturnInt(0);
     }
 
-    r = ((flowctx->ndpi_flow->risk & data->risk_mask) == data->risk_mask);
+    bool r = ((flowctx->ndpi_flow->risk & data->risk_mask) == data->risk_mask);
     r = r ^ data->negated;
 
     if (r) {
@@ -402,9 +398,7 @@ static bool nDPIRiskDataHasConflicts(const DetectnDPIRiskData *us, const Detectn
 
 static int DetectnDPIRiskSetup(DetectEngineCtx *de_ctx, Signature *s, const char *arg)
 {
-    DetectnDPIRiskData *data = NULL;
-
-    data = DetectnDPIRiskParse(arg, s->init_data->negated);
+    DetectnDPIRiskData *data = DetectnDPIRiskParse(arg, s->init_data->negated);
     if (data == NULL)
         goto error;
 

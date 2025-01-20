@@ -45,17 +45,17 @@ struct NdpiThreadContext {
 struct NdpiFlowContext {
     struct ndpi_flow_struct *ndpi_flow;
     ndpi_protocol detected_l7_protocol;
-    uint8_t detection_completed;
+    bool detection_completed;
 };
 
 typedef struct DetectnDPIProtocolData_ {
     ndpi_master_app_protocol l7_protocol;
-    uint8_t negated;
+    bool negated;
 } DetectnDPIProtocolData;
 
 typedef struct DetectnDPIRiskData_ {
     ndpi_risk risk_mask; /* uint64 */
-    uint8_t negated;
+    bool negated;
 } DetectnDPIRiskData;
 
 static void ThreadStorageFree(void *ptr)
@@ -86,7 +86,7 @@ static void OnFlowInit(ThreadVars *tv, Flow *f, const Packet *p, void *_data)
     }
 
     memset(flowctx->ndpi_flow, 0, SIZEOF_FLOW_STRUCT);
-    flowctx->detection_completed = 0;
+    flowctx->detection_completed = false;
     FlowSetStorageById(f, flow_storage_id, flowctx);
 }
 
@@ -123,17 +123,17 @@ static void OnFlowUpdate(ThreadVars *tv, Flow *f, Packet *p, void *_data)
         if (ndpi_is_protocol_detected(flowctx->detected_l7_protocol) != 0) {
             if (!ndpi_is_proto_unknown(flowctx->detected_l7_protocol.proto)) {
                 if (!ndpi_extra_dissection_possible(threadctx->ndpi, flowctx->ndpi_flow))
-                    flowctx->detection_completed = 1;
+                    flowctx->detection_completed = true;
             }
         } else {
-            u_int16_t max_num_pkts = (f->proto == IPPROTO_UDP) ? 8 : 24;
+            uint16_t max_num_pkts = (f->proto == IPPROTO_UDP) ? 8 : 24;
 
             if ((f->todstpktcnt + f->tosrcpktcnt) > max_num_pkts) {
-                u_int8_t proto_guessed;
+                uint8_t proto_guessed;
 
                 flowctx->detected_l7_protocol =
                         ndpi_detection_giveup(threadctx->ndpi, flowctx->ndpi_flow, &proto_guessed);
-                flowctx->detection_completed = 1;
+                flowctx->detection_completed = true;
             }
         }
 
@@ -444,7 +444,7 @@ static void EveCallback(ThreadVars *tv, const Packet *p, Flow *f, JsonBuilder *j
     struct NdpiFlowContext *flowctx = FlowGetStorageById(f, flow_storage_id);
     ndpi_serializer serializer;
     char *buffer;
-    u_int32_t buffer_len;
+    uint32_t buffer_len;
 
     SCLogDebug("EveCallback: tv=%p, p=%p, f=%p", tv, p, f);
 
